@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "http", "url": "http://127.0.0.1:7777/claude-hook", "timeout": 2, "headers": { "X-Pip-Integration": "pip-desktop" } }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "http", "url": "http://127.0.0.1:7777/claude-hook", "timeout": 2, "headers": { "X-Pip-Integration": "pip-desktop" } }] }
+    ],
+    "PreToolUse": [
+      { "hooks": [{ "type": "http", "url": "http://127.0.0.1:7777/claude-hook", "timeout": 2, "headers": { "X-Pip-Integration": "pip-desktop" } }] }
+    ],
+    "PermissionRequest": [
+      { "hooks": [{ "type": "http", "url": "http://127.0.0.1:7777/claude-hook", "timeout": 2, "headers": { "X-Pip-Integration": "pip-desktop" } }] }
+    ],
+    "Notification": [
+      { "hooks": [{ "type": "http", "url": "http://127.0.0.1:7777/claude-hook", "timeout": 2, "headers": { "X-Pip-Integration": "pip-desktop" } }] }
+    ],
+    "PostToolUseFailure": [
+      { "hooks": [{ "type": "http", "url": "http://127.0.0.1:7777/claude-hook", "timeout": 2, "headers": { "X-Pip-Integration": "pip-desktop" } }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "http", "url": "http://127.0.0.1:7777/claude-hook", "timeout": 2, "headers": { "X-Pip-Integration": "pip-desktop" } }] }
+    ],
+    "StopFailure": [
+      { "hooks": [{ "type": "http", "url": "http://127.0.0.1:7777/claude-hook", "timeout": 2, "headers": { "X-Pip-Integration": "pip-desktop" } }] }
+    ]
+  }
+}

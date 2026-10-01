@@ -1,0 +1,53 @@
+{
+  "name": "pip-vscode",
+  "displayName": "Pip",
+  "description": "Mascote de código Pip para VS Code.",
+  "version": "0.2.9",
+  "publisher": "local",
+  "engines": { "vscode": "^1.93.0" },
+  "main": "./extension.js",
+  "activationEvents": ["onStartupFinished", "onChatParticipant:pip.chat"],
+  "contributes": {
+    "commands": [
+      { "command": "pip.ask", "title": "Pip: Perguntar sobre o código" },
+      { "command": "pip.review", "title": "Pip: Revisar seleção" }
+    ],
+    "keybindings": [
+      { "command": "pip.ask", "key": "ctrl+alt+p", "when": "editorTextFocus" }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "pip.ask", "when": "editorHasSelection", "group": "pip@1" },
+        { "command": "pip.review", "when": "editorHasSelection", "group": "pip@2" }
+      ]
+    },
+    "chatParticipants": [
+      {
+        "id": "pip.chat",
+        "name": "pip",
+        "fullName": "Pip",
+        "description": "Converse com o Pip sobre o código aberto",
+        "isSticky": true,
+        "commands": [
+          { "name": "review", "description": "Revise o código aberto ou selecionado" }
+        ]
+      }
+    ],
+    "configuration": {
+      "title": "Pip",
+      "properties": {
+        "pip.endpoint": {
+          "type": "string",
+          "default": "http://127.0.0.1:7777",
+          "description": "Endereço local do overlay do Pip. Apenas endereços de loopback são aceitos."
+        },
+        "pip.transport": {
+          "type": "string",
+          "enum": ["auto", "namedPipe", "http"],
+          "default": "auto",
+          "description": "Canal local usado para conversar com o Pip. No Windows, auto tenta Named Pipe e usa HTTP local se ele não estiver acessível."
+        }
+      }
+    }
+  }
+}

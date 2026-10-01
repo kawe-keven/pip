@@ -1,0 +1,444 @@
+<!doctype html><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<style>
+  :root{--panel:#17181d;--panel-raised:#24252a;--border:#2b2c32;--text:#f0f0f2;--muted:#a7a8af;--accent:#f2f2f5;--accent-ink:#17181d}
+  html,body{margin:0;background:transparent;overflow:hidden;font:14px/1.45 "Segoe UI",sans-serif}
+  canvas{position:absolute;left:0;top:0;width:640px;height:250px;z-index:2;pointer-events:none}
+  #compact-island{position:absolute;left:239px;top:0;width:162px;height:78px;box-sizing:border-box;border:1px solid #121317;
+    border-top:0;border-radius:0 0 20px 20px;background:#030405;box-shadow:0 10px 28px #0008;transition:opacity 150ms ease}
+  body.chat-open #compact-island{display:none}
+  #bubble{position:absolute;z-index:4;left:142px;right:20px;top:80px;background:#17181d;color:var(--text);border:1px solid var(--border);
+    padding:10px 13px;border-radius:13px;white-space:pre-wrap;display:none;max-height:115px;overflow:auto;box-shadow:0 12px 34px #0009}
+  #chat{position:absolute;z-index:1;left:0;right:0;top:0;bottom:8px;box-sizing:border-box;padding:7px 9px 9px;
+    border:1px solid #090a0c;border-radius:18px;background:#030405;color:var(--text);display:none;flex-direction:column;overflow:hidden;
+    box-shadow:0 16px 42px #0009;animation:chat-arrive 180ms ease-out}
+  body.chat-open #chat{display:flex}
+  @keyframes chat-arrive{from{opacity:0;transform:translateY(-5px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+  #chat-head{height:34px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 2px 6px}
+  #chat-nav,#chat-actions{display:flex;align-items:center;gap:4px}
+  #chat-close,#chat-attach,#chat-settings{display:grid;place-items:center;width:31px;height:29px;border:0;border-radius:9px;background:transparent;color:#c4c5cb;line-height:1;cursor:pointer}
+  #chat-close{font-size:19px}
+  #chat-attach{font-size:18px}
+  #chat-settings{font-size:15px}
+  #chat-close:hover,#chat-attach:hover,#chat-settings:hover{background:#ffffff12;color:#fff}
+  #chat-current{display:grid;place-items:center;width:31px;height:24px;border-radius:14px;background:#25262b}
+  .chat-bubble-icon{position:relative;width:12px;height:9px;border-radius:6px;background:#f1f1f3}
+  .chat-bubble-icon::after{position:absolute;left:2px;bottom:-2px;width:4px;height:4px;background:#f1f1f3;content:"";clip-path:polygon(0 0,100% 0,0 100%)}
+  #chat-stage{position:relative;display:flex;flex:1;min-height:0;flex-direction:column;gap:7px;overflow:hidden;padding:12px 14px 13px 85px;
+    border-radius:15px;background:radial-gradient(ellipse at 52% 108%,#3d3e69 0%,#252631 32%,#17181d 68%)}
+  #chat-transcript{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#555660 transparent}
+  .chat-entry{padding:7px 9px;margin:3px 0;border-radius:8px;background:#ffffff08;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}
+  .chat-entry-user{background:#ffffff0a}
+  .chat-entry-pip{background:#ffffff05}
+  .chat-entry-label{display:block;margin-bottom:2px;color:var(--muted);font-size:10px;font-weight:500}
+  #chat-message{min-height:0;max-height:42px;overflow:auto;white-space:pre-wrap;font-size:11px;margin:0;color:var(--muted)}
+  #chat-message:empty{display:none}
+  #attachments{display:flex;flex-wrap:wrap;gap:6px}
+  .attachment{display:flex;align-items:center;gap:6px;max-width:100%;padding:4px 7px 4px 9px;border-radius:7px;background:#ffffff0d;color:var(--text);font-size:12px}
+  .attachment-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .attachment-remove{flex:none;border:0;background:transparent;color:#d4d4da;font-size:16px;line-height:1;cursor:pointer}
+  #drop-hint{position:absolute;z-index:4;top:46px;left:142px;right:20px;padding:6px 8px;border:1px solid #515260;border-radius:9px;
+    background:#17181d;color:var(--text);text-align:center;font-size:12px;pointer-events:none;display:none}
+  body.file-dragging #drop-hint{display:block}
+  #chat-form{display:flex;flex:none;gap:8px;align-items:center;min-height:40px;padding:4px 5px 4px 12px;border:1px solid #292a30;border-radius:14px;background:#24252a}
+  #chat-input{box-sizing:border-box;flex:1;min-width:0;min-height:28px;max-height:56px;resize:none;border:0;background:transparent;
+    color:var(--text);font:13px/1.4 "Segoe UI",sans-serif;padding:5px 0;outline:none}
+  #chat-input::placeholder{color:#85868e}
+  #chat-send{display:grid;place-items:center;flex:none;width:29px;height:29px;border:0;border-radius:50%;background:var(--accent);color:var(--accent-ink);font:600 17px/1 "Segoe UI",sans-serif;cursor:pointer}
+  #chat-send[data-cancelling="false"]{width:auto;padding:0 11px;border-radius:16px;font:600 12px "Segoe UI",sans-serif}
+  #chat-send[data-cancelling="true"]{width:auto;padding:0 11px;border-radius:16px;background:#d4d4da;font:600 12px "Segoe UI",sans-serif}
+  #chat-send:disabled,#chat-close:disabled,#chat-attach:disabled{opacity:.55;cursor:default}
+</style>
+<canvas id="c" width="640" height="250"></canvas>
+<div id="compact-island" aria-hidden="true"></div>
+<div id="bubble"></div>
+<div id="drop-hint">Solte para anexar ao Pip</div>
+<section id="chat" aria-label="Conversa com o Pip">
+  <div id="chat-head">
+    <div id="chat-nav">
+      <button id="chat-close" type="button" aria-label="Recolher Pip" title="Recolher">⌂</button>
+      <span id="chat-current" aria-label="Conversa atual"><span class="chat-bubble-icon"></span></span>
+      <button id="chat-attach" type="button" aria-label="Anexar arquivos" title="Anexar arquivos">+</button>
+    </div>
+    <div id="chat-actions"><button id="chat-settings" type="button" aria-label="Abrir configurações" title="Configurações">⚙</button></div>
+  </div>
+  <div id="chat-stage">
+    <div id="chat-transcript" role="log" aria-live="polite" aria-label="Histórico da conversa"></div>
+    <div id="chat-message" aria-live="polite"></div>
+    <div id="attachments" aria-label="Arquivos anexados"></div>
+    <form id="chat-form">
+      <textarea id="chat-input" rows="1" maxlength="2000" aria-label="Sua pergunta" placeholder="Escreva sua pergunta…"></textarea>
+      <button id="chat-send" type="submit" aria-label="Enviar pergunta" title="Enviar pergunta">↑</button>
+    </form>
+  </div>
+</section>
+<script>
+const c = document.getElementById('c'), x = c.getContext('2d'), bub = document.getElementById('bubble');
+const chat = document.getElementById('chat'), chatMessage = document.getElementById('chat-message');
+const chatTranscript = document.getElementById('chat-transcript');
+const chatForm = document.getElementById('chat-form'), chatInput = document.getElementById('chat-input');
+const chatSend = document.getElementById('chat-send');
+const chatAttach = document.getElementById('chat-attach');
+const attachmentList = document.getElementById('attachments');
+let CX = 320, CY = 39;
+let mood = 'idle', moodT = 0, t = 0, look = { x: 0, y: 0 }, gaze = { x: 0, y: 0 };
+let blinkFrames = 0, blinkCountdown = 3 + Math.random() * 3, chatOpen = false;
+let pointerOver = false, characterHovered = false, hoverStartedAt = 0, hoverAmount = 0, dropAmount = 0, affection = false, clickHistory = [];
+let entranceAmount = 1, greetingTime = 0, clickAmount = 0;
+let attachedFiles = [], previousFrameAt = 0, animationFramePending = false;
+let activeChatRequestId = null, chatRequestSequence = 0;
+const MAX_TRANSCRIPT_MESSAGES = 24;
+const COLORS = { idle:'#d4d7d4', happy:'#d7e4d8', worried:'#e4d9c9', sad:'#d1d8df', sleepy:'#d2d2d0', thinking:'#dce2d5', annoyed:'#dfd3d0', dizzy:'#e3dfc9' };
+const STICKY = ['worried', 'sleepy'];
+
+function setMood(m) { mood = m; moodT = 0; }
+function say(text, ms) {
+  if (chatOpen) { chatMessage.textContent = text; return; }
+  bub.textContent = text;
+  bub.style.display = 'block';
+  clearTimeout(say.t);
+  if (ms) say.t = setTimeout(() => bub.style.display = 'none', ms);
+}
+
+function openChat() {
+  if (chatOpen) return;
+  chatOpen = true;
+  CX = 52;
+  CY = 145;
+  document.body.classList.add('chat-open');
+  bub.style.display = 'none';
+  window.api.openChat();
+  requestAnimationFrame(() => chatInput.focus());
+}
+
+function cancelActiveChatRequest() {
+  if (!activeChatRequestId) return false;
+  window.api.cancelAsk(activeChatRequestId);
+  chatInput.disabled = true;
+  chatSend.disabled = true;
+  chatSend.textContent = 'Cancelando…';
+  chatSend.dataset.cancelling = 'true';
+  chatMessage.textContent = 'Cancelando…';
+  return true;
+}
+
+function closeChat() {
+  if (!chatOpen) return;
+  cancelActiveChatRequest();
+  chatOpen = false;
+  CX = 320;
+  CY = 39;
+  document.body.classList.remove('chat-open');
+  window.api.closeChat();
+}
+
+function appendTranscriptMessage(role, text) {
+  if (typeof text !== 'string' || !text) return;
+  const entry = document.createElement('div');
+  entry.className = `chat-entry chat-entry-${role}`;
+  const label = document.createElement('span');
+  label.className = 'chat-entry-label';
+  label.textContent = role === 'user' ? 'Você' : 'Pip';
+  const message = document.createElement('span');
+  message.textContent = text;
+  entry.append(label, message);
+  chatTranscript.append(entry);
+  while (chatTranscript.childElementCount > MAX_TRANSCRIPT_MESSAGES) chatTranscript.firstElementChild.remove();
+  chatTranscript.scrollTop = chatTranscript.scrollHeight;
+}
+
+function renderAttachments() {
+  attachmentList.replaceChildren();
+  for (const file of attachedFiles) {
+    const chip = document.createElement('span');
+    chip.className = 'attachment';
+    const name = document.createElement('span');
+    name.className = 'attachment-name';
+    name.textContent = file.name;
+    const remove = document.createElement('button');
+    remove.className = 'attachment-remove';
+    remove.type = 'button';
+    remove.textContent = '×';
+    remove.setAttribute('aria-label', `Remover ${file.name}`);
+    remove.addEventListener('click', async () => {
+      try {
+        await window.api.clearAttachments();
+        attachedFiles = [];
+        renderAttachments();
+      } catch (error) {
+        chatMessage.textContent = error.message || 'Não consegui remover o arquivo.';
+      }
+    });
+    chip.append(name, remove);
+    attachmentList.append(chip);
+  }
+}
+
+async function attachFiles(result) {
+  try {
+    const files = await result;
+    if (!files.length) return;
+    attachedFiles = files;
+    renderAttachments();
+    openChat();
+    chatMessage.textContent = files.length === 1
+      ? `${files[0].name} anexado. Faça uma pergunta sobre o arquivo.`
+      : `${files.length} arquivos anexados. Faça uma pergunta sobre eles.`;
+    setMood('happy');
+  } catch (error) {
+    setMood('worried');
+    say(error.message || 'Não consegui anexar esse arquivo.', 6000);
+  }
+}
+
+function isFileDropTarget(event) {
+  return chat.contains(event.target) || Math.hypot(event.clientX - CX, event.clientY - CY) < 58;
+}
+
+document.addEventListener('dragover', (event) => {
+  if (!Array.from(event.dataTransfer?.types || []).includes('Files')) return;
+  event.preventDefault();
+  const accepted = chatOpen || isFileDropTarget(event);
+  document.body.classList.toggle('file-dragging', accepted);
+  if (accepted) event.dataTransfer.dropEffect = 'copy';
+});
+document.addEventListener('dragleave', (event) => {
+  if (!event.relatedTarget || !document.documentElement.contains(event.relatedTarget)) {
+    document.body.classList.remove('file-dragging');
+  }
+});
+document.addEventListener('drop', (event) => {
+  if (!event.dataTransfer?.files?.length) return;
+  event.preventDefault();
+  document.body.classList.remove('file-dragging');
+  if (!chatOpen && !isFileDropTarget(event)) return;
+  attachFiles(window.api.attachFiles(Array.from(event.dataTransfer.files)));
+});
+
+window.api.onEvent((e) => {
+  switch (e.type) {
+    case 'hello': entranceAmount = 0; greetingTime = 1.6; setMood('happy'); say('Oi! Estou aqui quando você precisar.', 4500); break;
+    case 'cursor': look = { x: Math.max(-180, Math.min(180, e.x - CX)), y: Math.max(-100, Math.min(120, e.y - CY)) }; break;
+    case 'worried': setMood('worried'); if (e.text) say(e.text, 6000); break;
+    case 'relieved': if (mood === 'worried') { setMood('happy'); say('Sem erros agora!', 3000); } break;
+    case 'saved': if (!STICKY.includes(mood)) setMood('happy'); break;
+    case 'happy': setMood('happy'); say(e.text || 'Passou!', 4000); break;
+    case 'sad': setMood('sad'); say(e.text || 'Falhou. Quer ajuda?', 5000); break;
+    case 'sleepy': setMood('sleepy'); break;
+    case 'wake': if (mood === 'sleepy') setMood('idle'); break;
+    case 'thinking': setMood('thinking'); say(e.text || 'Pensando…'); break;
+    case 'cancelled': setMood('idle'); if (chatOpen) chatMessage.textContent = 'Parei por aqui.'; break;
+    case 'answer':
+      setMood('happy');
+      if (chatOpen) appendTranscriptMessage('pip', e.text);
+      else say(e.text);
+      break;
+    case 'chat-opened': chatInput.focus(); break;
+    case 'chat-dismissed':
+      chatOpen = false;
+      CX = 320;
+      CY = 39;
+      document.body.classList.remove('chat-open');
+      break;
+  }
+});
+
+document.addEventListener('mousemove', (e) => {
+  const onCharacter = Math.hypot(e.clientX - CX, e.clientY - CY) < 74;
+  const over = onCharacter || bub.contains(e.target) || chat.contains(e.target);
+  if (over !== pointerOver) {
+    pointerOver = over;
+    window.api.setInteractive(over);
+  }
+  if (onCharacter !== characterHovered) {
+    characterHovered = onCharacter;
+    hoverStartedAt = onCharacter ? Date.now() : 0;
+    if (!onCharacter) affection = false;
+  }
+  if (characterHovered && hoverStartedAt && Date.now() - hoverStartedAt >= 2000) affection = true;
+});
+document.addEventListener('click', (event) => {
+  if (Math.hypot(event.clientX - CX, event.clientY - CY) >= 74) return;
+  clickAmount = 1;
+  const now = Date.now();
+  clickHistory = clickHistory.filter((time) => now - time < 900);
+  clickHistory.push(now);
+  if (clickHistory.length >= 3) {
+    setMood('dizzy');
+    clickHistory = [];
+  } else if (clickHistory.length === 2) setMood('annoyed');
+  else setMood('happy');
+  openChat();
+});
+bub.addEventListener('click', () => { bub.style.display = 'none'; });
+document.getElementById('chat-close').addEventListener('click', closeChat);
+document.getElementById('chat-settings').addEventListener('click', () => {
+  cancelActiveChatRequest();
+  window.api.openSettings();
+});
+chatAttach.addEventListener('click', () => attachFiles(window.api.chooseFiles()));
+chatForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (activeChatRequestId) { cancelActiveChatRequest(); return; }
+  const question = chatInput.value.trim();
+  if (!question || chatInput.disabled) return;
+  const requestId = `pip-overlay-chat-${Date.now()}-${++chatRequestSequence}`;
+  activeChatRequestId = requestId;
+  chatInput.disabled = true;
+  chatSend.disabled = false;
+  chatSend.textContent = 'Cancelar';
+  chatSend.dataset.cancelling = 'false';
+  appendTranscriptMessage('user', question);
+  chatMessage.textContent = 'Pensando…';
+  setMood('thinking');
+  try {
+    const result = await window.api.ask(question, requestId);
+    if (result.cancelled) {
+      appendTranscriptMessage('pip', result.text || 'Parei por aqui.');
+      setMood('idle');
+      chatMessage.textContent = result.text || 'Parei por aqui.';
+      return;
+    }
+    appendTranscriptMessage('pip', result.text);
+    setMood(result.ok === false ? 'sad' : 'happy');
+    chatMessage.textContent = result.ok === false ? result.text : 'Sua vez.';
+  } catch (error) {
+    setMood('sad');
+    const message = error.message || 'Não consegui enviar a pergunta.';
+    appendTranscriptMessage('pip', message);
+    chatMessage.textContent = 'A pergunta não foi enviada.';
+  } finally {
+    activeChatRequestId = null;
+    chatInput.disabled = false;
+    chatSend.disabled = false;
+    chatSend.textContent = '↑';
+    chatSend.dataset.cancelling = 'false';
+    chatInput.value = '';
+    chatInput.focus();
+  }
+});
+document.addEventListener('keydown', (event) => {
+  if (!chatOpen) return;
+  if (event.key === 'Escape') { event.preventDefault(); closeChat(); }
+  else if (event.target === chatInput && event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    chatForm.requestSubmit();
+  }
+});
+
+function draw(timestamp) {
+  animationFramePending = false;
+  if (document.visibilityState === 'hidden') {
+    previousFrameAt = timestamp;
+    return;
+  }
+  const elapsed = previousFrameAt ? Math.max(0, (timestamp - previousFrameAt) / 1000) : 1 / 60;
+  const easing = 1 - Math.exp(-elapsed * 10);
+  previousFrameAt = timestamp;
+  t += elapsed; moodT += elapsed;
+  if (characterHovered && hoverStartedAt && !affection && Date.now() - hoverStartedAt >= 2000) affection = true;
+  hoverAmount += ((characterHovered ? 1 : 0) - hoverAmount) * easing;
+  const dropTarget = document.body.classList.contains('file-dragging') ? 1 : 0;
+  dropAmount += (dropTarget - dropAmount) * easing;
+  if (!STICKY.includes(mood) && mood !== 'thinking' && moodT > 3) setMood('idle');
+  x.clearRect(0, 0, 640, 250);
+  let ox = 0, oy = (1 - entranceAmount) * -38, sy = 1 + Math.sin(t * 2) * 0.025;
+  entranceAmount += (1 - entranceAmount) * (1 - Math.exp(-elapsed * 7));
+  greetingTime = Math.max(0, greetingTime - elapsed);
+  clickAmount += (0 - clickAmount) * (1 - Math.exp(-elapsed * 14));
+  if (mood === 'happy') oy = -Math.abs(Math.sin(moodT * 9)) * 18 * Math.max(0, 1 - moodT / 1.2);
+  if (mood === 'worried') ox = Math.sin(t * 40) * 1.5;
+  if (mood === 'sleepy') sy = 0.9 + Math.sin(t) * 0.03;
+  const w = 52 + hoverAmount * 2 + clickAmount * 4, h = (44 + hoverAmount * 2) * sy * (1 - clickAmount * 0.12), cx = CX + ox, cy = CY + oy + (44 - h) / 2;
+  if (greetingTime > 0 && dropAmount < 0.1) {
+    const wave = Math.sin((1.6 - greetingTime) * 13) * Math.min(1, greetingTime * 2);
+    x.strokeStyle = '#c7d4c8'; x.lineWidth = 5; x.lineCap = 'round';
+    x.beginPath(); x.moveTo(cx + 39, cy + 12); x.quadraticCurveTo(cx + 54, cy + 10 + wave * 7, cx + 49, cy - 3 + wave * 13); x.stroke();
+    x.fillStyle = '#e2e9e2'; x.beginPath(); x.arc(cx + 49, cy - 3 + wave * 13, 4, 0, Math.PI * 2); x.fill();
+  }
+  const shell = x.createLinearGradient(cx, cy - h / 2, cx, cy + h / 2);
+  shell.addColorStop(0, '#f7f8f6'); shell.addColorStop(0.48, COLORS[mood]); shell.addColorStop(1, '#a5a9a6');
+  x.fillStyle = shell;
+  x.shadowColor = '#00000045'; x.shadowBlur = 8; x.shadowOffsetY = 4;
+  if (dropAmount < 0.01) {
+    x.beginPath(); x.roundRect(cx - w / 2, cy - h / 2, w, h, Math.min(h * 0.38, w * 0.24)); x.fill();
+  } else {
+    const left = cx - w / 2, right = cx + w / 2, top = cy - h / 2, bottom = cy + h / 2;
+    const rim = top + 10 * dropAmount;
+    x.beginPath(); x.moveTo(left, rim); x.lineTo(right, rim); x.lineTo(right, bottom - 8); x.quadraticCurveTo(right, bottom, right - 8, bottom);
+    x.lineTo(left + 8, bottom); x.quadraticCurveTo(left, bottom, left, bottom - 8); x.closePath(); x.fill();
+    x.strokeStyle = '#666c67'; x.lineWidth = 2; x.lineJoin = 'round';
+    x.beginPath(); x.moveTo(left + 2, rim); x.lineTo(cx - 5, top - 8 * dropAmount); x.lineTo(cx - 2, rim + 7); x.closePath(); x.fillStyle = '#eef0ed'; x.fill(); x.stroke();
+    x.beginPath(); x.moveTo(right - 2, rim); x.lineTo(cx + 5, top - 8 * dropAmount); x.lineTo(cx + 2, rim + 7); x.closePath(); x.fillStyle = '#adb2ad'; x.fill(); x.stroke();
+    x.beginPath(); x.moveTo(cx - 3, top - 8 * dropAmount); x.lineTo(cx, rim + 6); x.lineTo(cx + 3, top - 8 * dropAmount); x.stroke();
+  }
+  x.shadowColor = 'transparent'; x.shadowBlur = 0; x.shadowOffsetY = 0;
+  x.strokeStyle = '#858a85'; x.lineWidth = 1;
+  x.beginPath(); x.roundRect(cx - w / 2, cy - h / 2, w, h, Math.min(h * 0.38, w * 0.24)); x.stroke();
+  if (affection) {
+    for (const s of [-1, 1]) {
+      const hx = cx + s * (20 + Math.sin(t * 2 + s) * 3);
+      const hy = cy - 29 - (t * 10 % 8);
+      x.save(); x.translate(hx, hy); x.scale(0.7, 0.7);
+      x.fillStyle = '#f08fa6'; x.beginPath(); x.moveTo(0, 5); x.bezierCurveTo(-13, -3, -8, -12, 0, -6); x.bezierCurveTo(8, -12, 13, -3, 0, 5); x.fill();
+      x.restore();
+    }
+  }
+  // eyes seguem o mouse
+  const gazeEasing = 1 - Math.exp(-elapsed * 12);
+  gaze.x += (look.x - gaze.x) * gazeEasing;
+  gaze.y += (look.y - gaze.y) * gazeEasing;
+  const d = Math.hypot(gaze.x, gaze.y) || 1, k = Math.min(1, d / 200) * 3.5;
+  const px = (gaze.x / d) * k, py = (gaze.y / d) * k;
+  if (blinkFrames > 0) blinkFrames = Math.max(0, blinkFrames - elapsed);
+  else if ((blinkCountdown -= elapsed) <= 0) {
+    blinkFrames = 7 / 60;
+    blinkCountdown = 3.5 + Math.random() * 4;
+  }
+  const closed = mood === 'sleepy' || blinkFrames > 0 || mood === 'annoyed';
+  for (const s of [-1, 1]) {
+    const ex = cx + s * 10, ey = cy - 3 + dropAmount * 5;
+    const eyeWidth = 4.5 + hoverAmount * 0.5, eyeHeight = 5.5 + hoverAmount * 0.5;
+    x.fillStyle = '#111312'; x.strokeStyle = '#111312'; x.lineWidth = 2; x.lineCap = 'round';
+    if (closed) {
+      x.beginPath();
+      if (mood === 'happy') x.arc(ex, ey + 2, 4, Math.PI, Math.PI * 2);
+      else { x.moveTo(ex - 4, ey); x.lineTo(ex + 4, ey); }
+      x.stroke();
+    }
+    else if (mood === 'dizzy') {
+      x.beginPath(); x.arc(ex, ey, 4, 0, Math.PI * 2); x.stroke();
+      x.beginPath(); x.arc(ex, ey, 2, t * 4, t * 4 + Math.PI * 1.5); x.stroke();
+    } else {
+      x.beginPath(); x.ellipse(ex, ey, eyeWidth, eyeHeight, 0, 0, 7); x.fill();
+      x.fillStyle = '#111312'; x.beginPath(); x.arc(ex + px, ey + py, 2.5 + hoverAmount * 0.2, 0, 7); x.fill();
+    }
+    if (mood === 'worried' || mood === 'annoyed') { x.beginPath(); x.moveTo(ex - 5, ey - 9 + s * 2); x.lineTo(ex + 5, ey - 9 - s * 2); x.stroke(); }
+  }
+  // boca
+  x.strokeStyle = '#111312'; x.lineWidth = 3; x.beginPath();
+  const my = cy + 9;
+  if (mood === 'happy') x.arc(cx, my - 3, 5, 0.1 * Math.PI, 0.9 * Math.PI);
+  else if (mood === 'sad' || mood === 'worried') x.arc(cx, my + 5, 4, 1.15 * Math.PI, 1.85 * Math.PI);
+  else if (mood === 'thinking') x.arc(cx + 4, my, 2, 0, 7);
+  else if (mood === 'dizzy') x.arc(cx, my, 3, 0, Math.PI * 2);
+  else { x.moveTo(cx - 3, my); x.lineTo(cx + 3, my); }
+  x.stroke();
+  requestDraw();
+}
+
+function requestDraw() {
+  if (document.visibilityState === 'hidden' || animationFramePending) return;
+  animationFramePending = true;
+  requestAnimationFrame(draw);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    entranceAmount = 0;
+    greetingTime = 1.6;
+    requestDraw();
+  }
+});
+requestDraw();
+</script>
