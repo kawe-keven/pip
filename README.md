@@ -7,8 +7,11 @@ está descrita em [ARCHITECTURE.md](ARCHITECTURE.md).
 ## Overlay (Electron)
 No Windows, abra `pip.bat`. Na primeira execução ele instala as dependências
 necessárias e inicia o overlay. É preciso ter Node.js (com npm) instalado.
-O Pip aparece no topo central quando o cursor chega à borda superior e também
-pode ser aberto pelo ícone na área de notificação. O menu do ícone permite
+O Pip mantém uma ilha compacta no topo central; passe o cursor para expandi-la.
+No Windows, ela mostra a faixa e o artista da sessão de mídia ativa, além de
+alertas temporários. Clique no mascote para abrir a conversa ou no ícone de nota
+musical para abrir o chat durante a reprodução. O ícone na área de notificação
+também pode abrir o Pip. O menu do ícone permite
 pausar as aparições, abrir **Configurações…** ou sair.
 Em **Configurações…**, é possível escolher se o Pip deve iniciar junto com o Windows;
 essa opção vem desligada e pode ser alterada a qualquer momento.

@@ -1,14 +1,34 @@
 <!doctype html><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <style>
   :root{--panel:#17181d;--panel-raised:#24252a;--border:#2b2c32;--text:#f0f0f2;--muted:#a7a8af;--accent:#f2f2f5;--accent-ink:#17181d}
   html,body{margin:0;background:transparent;overflow:hidden;font:14px/1.45 "Segoe UI",sans-serif}
   canvas{position:absolute;left:0;top:0;width:640px;height:250px;z-index:2;pointer-events:none}
-  #compact-island{position:absolute;left:239px;top:0;width:162px;height:78px;box-sizing:border-box;border:1px solid #121317;
-    border-top:0;border-radius:0 0 20px 20px;background:#030405;box-shadow:0 10px 28px #0008;transition:opacity 150ms ease}
+  #compact-island{position:absolute;z-index:1;left:50%;top:0;width:180px;height:72px;box-sizing:border-box;transform:translateX(-50%);
+    border:1px solid #121317;border-top:0;border-radius:0 0 22px 22px;background:#030405;box-shadow:0 10px 28px #0008;
+    transition:width 220ms ease,height 220ms ease,border-radius 220ms ease}
+  body.media-available #compact-island{width:310px;height:66px;border-radius:0 0 24px 24px}
+  body.island-expanded #compact-island{width:420px;height:auto;min-height:96px;padding:12px 18px 14px;border-radius:0 0 24px 24px}
+  #island-media{display:none;align-items:center;gap:12px;min-width:0;height:100%;color:var(--text)}
+  body.media-available #island-media{display:flex}
+  .island-mascot-button{position:relative;display:block;flex:none;width:52px;height:34px;padding:0;border:1px solid #b9b9b9;border-radius:45%;
+    background:linear-gradient(180deg,#f8f8f8 0%,#d0d0d0 48%,#999 100%);box-shadow:0 2px 8px #0008;cursor:pointer}
+  .island-mascot-eye{position:absolute;top:9px;width:5px;height:14px;border-radius:50%;background:#050505}
+  .island-mascot-eye:first-child{left:15px}
+  .island-mascot-eye:last-child{right:15px}
+  #island-track{display:flex;flex:1;min-width:0;flex-direction:column;line-height:1.3}
+  #island-title,#island-artist{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #island-title{font-size:12px;font-weight:600;color:#f3f3f4}
+  #island-artist{font-size:11px;color:#a7a8af}
+  #island-status{flex:none;color:#a7a8af;font-size:10px}
+  #island-notification{display:none;max-height:48px;overflow:hidden;margin-top:7px;padding:8px 10px;border-top:1px solid #ffffff18;
+    color:#e8e8eb;font-size:12px;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere}
+  body.has-notification #island-notification{display:block}
+  body.island-expanded canvas{opacity:0}
+  body.media-available:not(.island-expanded) canvas{opacity:0}
   body.chat-open #compact-island{display:none}
-  #bubble{position:absolute;z-index:4;left:142px;right:20px;top:80px;background:#17181d;color:var(--text);border:1px solid var(--border);
-    padding:10px 13px;border-radius:13px;white-space:pre-wrap;display:none;max-height:115px;overflow:auto;box-shadow:0 12px 34px #0009}
+  #bubble{display:none}
   #chat{position:absolute;z-index:1;left:0;right:0;top:0;bottom:8px;box-sizing:border-box;padding:7px 9px 9px;
     border:1px solid #090a0c;border-radius:18px;background:#030405;color:var(--text);display:none;flex-direction:column;overflow:hidden;
     box-shadow:0 16px 42px #0009;animation:chat-arrive 180ms ease-out}
@@ -50,7 +70,16 @@
   #chat-send:disabled,#chat-close:disabled,#chat-attach:disabled{opacity:.55;cursor:default}
 </style>
 <canvas id="c" width="640" height="250"></canvas>
-<div id="compact-island" aria-hidden="true"></div>
+<div id="compact-island" aria-label="Dynamic Island do Pip">
+  <div id="island-media" aria-live="polite">
+    <button class="island-mascot-button" type="button" aria-label="Abrir conversa com Pip" title="Abrir conversa com Pip">
+      <span class="island-mascot-eye" aria-hidden="true"></span><span class="island-mascot-eye" aria-hidden="true"></span>
+    </button>
+    <span id="island-track"><strong id="island-title"></strong><span id="island-artist"></span></span>
+    <span id="island-status"></span>
+  </div>
+  <div id="island-notification" aria-live="polite"></div>
+</div>
 <div id="bubble"></div>
 <div id="drop-hint">Solte para anexar ao Pip</div>
 <section id="chat" aria-label="Conversa com o Pip">
@@ -74,6 +103,11 @@
 </section>
 <script>
 const c = document.getElementById('c'), x = c.getContext('2d'), bub = document.getElementById('bubble');
+const compactIsland = document.getElementById('compact-island');
+const islandNotification = document.getElementById('island-notification');
+const islandTitle = document.getElementById('island-title');
+const islandArtist = document.getElementById('island-artist');
+const islandStatus = document.getElementById('island-status');
 const chat = document.getElementById('chat'), chatMessage = document.getElementById('chat-message');
 const chatTranscript = document.getElementById('chat-transcript');
 const chatForm = document.getElementById('chat-form'), chatInput = document.getElementById('chat-input');
@@ -87,17 +121,39 @@ let pointerOver = false, characterHovered = false, hoverStartedAt = 0, hoverAmou
 let entranceAmount = 1, greetingTime = 0, clickAmount = 0;
 let attachedFiles = [], previousFrameAt = 0, animationFramePending = false;
 let activeChatRequestId = null, chatRequestSequence = 0;
+let notificationTimer, islandHovered = false, islandPinnedOpen = false;
 const MAX_TRANSCRIPT_MESSAGES = 24;
 const COLORS = { idle:'#d4d7d4', happy:'#d7e4d8', worried:'#e4d9c9', sad:'#d1d8df', sleepy:'#d2d2d0', thinking:'#dce2d5', annoyed:'#dfd3d0', dizzy:'#e3dfc9' };
 const STICKY = ['worried', 'sleepy'];
 
 function setMood(m) { mood = m; moodT = 0; }
-function say(text, ms) {
+function say(text, ms = 7000) {
   if (chatOpen) { chatMessage.textContent = text; return; }
-  bub.textContent = text;
-  bub.style.display = 'block';
-  clearTimeout(say.t);
-  if (ms) say.t = setTimeout(() => bub.style.display = 'none', ms);
+  islandNotification.textContent = text;
+  document.body.classList.add('has-notification', 'island-expanded');
+  clearTimeout(notificationTimer);
+  if (ms > 0) notificationTimer = setTimeout(() => {
+    document.body.classList.remove('has-notification');
+    if (!islandHovered && !islandPinnedOpen && !document.body.classList.contains('media-playing')) {
+      document.body.classList.remove('island-expanded');
+    }
+  }, ms);
+}
+
+function updateMedia(media) {
+  const title = typeof media?.title === 'string' ? media.title.trim() : '';
+  const artist = typeof media?.artist === 'string' ? media.artist.trim() : '';
+  const available = !!(title || artist);
+  const playing = available && media?.playing === true;
+  document.body.classList.toggle('media-available', available);
+  document.body.classList.toggle('media-playing', playing);
+  if (playing) document.body.classList.add('island-expanded');
+  else if (!islandHovered && !islandPinnedOpen && !document.body.classList.contains('has-notification')) {
+    document.body.classList.remove('island-expanded');
+  }
+  islandTitle.textContent = title || 'Reproduzindo';
+  islandArtist.textContent = artist;
+  islandStatus.textContent = media?.playing ? 'TOCANDO' : 'PAUSADA';
 }
 
 function openChat() {
@@ -226,7 +282,7 @@ window.api.onEvent((e) => {
     case 'sad': setMood('sad'); say(e.text || 'Falhou. Quer ajuda?', 5000); break;
     case 'sleepy': setMood('sleepy'); break;
     case 'wake': if (mood === 'sleepy') setMood('idle'); break;
-    case 'thinking': setMood('thinking'); say(e.text || 'Pensando…'); break;
+    case 'thinking': setMood('thinking'); say(e.text || 'Pensando…', 30000); break;
     case 'cancelled': setMood('idle'); if (chatOpen) chatMessage.textContent = 'Parei por aqui.'; break;
     case 'answer':
       setMood('happy');
@@ -240,12 +296,24 @@ window.api.onEvent((e) => {
       CY = 39;
       document.body.classList.remove('chat-open');
       break;
+    case 'media': updateMedia(e.media); break;
+  }
+});
+
+compactIsland.addEventListener('mouseenter', () => {
+  islandHovered = true;
+  document.body.classList.add('island-expanded');
+});
+compactIsland.addEventListener('mouseleave', () => {
+  islandHovered = false;
+  if (!document.body.classList.contains('has-notification') && !islandPinnedOpen && !document.body.classList.contains('media-playing')) {
+    document.body.classList.remove('island-expanded');
   }
 });
 
 document.addEventListener('mousemove', (e) => {
   const onCharacter = Math.hypot(e.clientX - CX, e.clientY - CY) < 74;
-  const over = onCharacter || bub.contains(e.target) || chat.contains(e.target);
+  const over = onCharacter || compactIsland.contains(e.target) || bub.contains(e.target) || chat.contains(e.target);
   if (over !== pointerOver) {
     pointerOver = over;
     window.api.setInteractive(over);
@@ -258,6 +326,21 @@ document.addEventListener('mousemove', (e) => {
   if (characterHovered && hoverStartedAt && Date.now() - hoverStartedAt >= 2000) affection = true;
 });
 document.addEventListener('click', (event) => {
+  if (compactIsland.contains(event.target)) {
+    if (event.target.closest('.island-note-icon')) {
+      clickAmount = 1;
+      openChat();
+      return;
+    }
+    if (Math.hypot(event.clientX - CX, event.clientY - CY) < 54 && !document.body.classList.contains('media-available')) {
+      clickAmount = 1;
+      openChat();
+    } else {
+      islandPinnedOpen = !islandPinnedOpen;
+      document.body.classList.toggle('island-expanded', islandPinnedOpen || islandHovered || document.body.classList.contains('has-notification') || document.body.classList.contains('media-playing'));
+    }
+    return;
+  }
   if (Math.hypot(event.clientX - CX, event.clientY - CY) >= 74) return;
   clickAmount = 1;
   const now = Date.now();
@@ -349,7 +432,7 @@ function draw(timestamp) {
   if (mood === 'happy') oy = -Math.abs(Math.sin(moodT * 9)) * 18 * Math.max(0, 1 - moodT / 1.2);
   if (mood === 'worried') ox = Math.sin(t * 40) * 1.5;
   if (mood === 'sleepy') sy = 0.9 + Math.sin(t) * 0.03;
-  const w = 52 + hoverAmount * 2 + clickAmount * 4, h = (44 + hoverAmount * 2) * sy * (1 - clickAmount * 0.12), cx = CX + ox, cy = CY + oy + (44 - h) / 2;
+  const w = 72 + hoverAmount * 2 + clickAmount * 4, h = (46 + hoverAmount * 2) * sy * (1 - clickAmount * 0.12), cx = CX + ox, cy = CY + oy + (46 - h) / 2;
   if (greetingTime > 0 && dropAmount < 0.1) {
     const wave = Math.sin((1.6 - greetingTime) * 13) * Math.min(1, greetingTime * 2);
     x.strokeStyle = '#c7d4c8'; x.lineWidth = 5; x.lineCap = 'round';
@@ -384,12 +467,6 @@ function draw(timestamp) {
       x.restore();
     }
   }
-  // eyes seguem o mouse
-  const gazeEasing = 1 - Math.exp(-elapsed * 12);
-  gaze.x += (look.x - gaze.x) * gazeEasing;
-  gaze.y += (look.y - gaze.y) * gazeEasing;
-  const d = Math.hypot(gaze.x, gaze.y) || 1, k = Math.min(1, d / 200) * 3.5;
-  const px = (gaze.x / d) * k, py = (gaze.y / d) * k;
   if (blinkFrames > 0) blinkFrames = Math.max(0, blinkFrames - elapsed);
   else if ((blinkCountdown -= elapsed) <= 0) {
     blinkFrames = 7 / 60;
@@ -397,33 +474,18 @@ function draw(timestamp) {
   }
   const closed = mood === 'sleepy' || blinkFrames > 0 || mood === 'annoyed';
   for (const s of [-1, 1]) {
-    const ex = cx + s * 10, ey = cy - 3 + dropAmount * 5;
-    const eyeWidth = 4.5 + hoverAmount * 0.5, eyeHeight = 5.5 + hoverAmount * 0.5;
+    const ex = cx + s * 16, ey = cy - 3 + dropAmount * 5;
+    const eyeWidth = 4.2 + hoverAmount * 0.3, eyeHeight = 7.2 + hoverAmount * 0.3;
     x.fillStyle = '#111312'; x.strokeStyle = '#111312'; x.lineWidth = 2; x.lineCap = 'round';
     if (closed) {
       x.beginPath();
-      if (mood === 'happy') x.arc(ex, ey + 2, 4, Math.PI, Math.PI * 2);
+      if (mood === 'happy') x.arc(ex, ey + 2, 5, Math.PI, Math.PI * 2);
       else { x.moveTo(ex - 4, ey); x.lineTo(ex + 4, ey); }
       x.stroke();
-    }
-    else if (mood === 'dizzy') {
-      x.beginPath(); x.arc(ex, ey, 4, 0, Math.PI * 2); x.stroke();
-      x.beginPath(); x.arc(ex, ey, 2, t * 4, t * 4 + Math.PI * 1.5); x.stroke();
     } else {
       x.beginPath(); x.ellipse(ex, ey, eyeWidth, eyeHeight, 0, 0, 7); x.fill();
-      x.fillStyle = '#111312'; x.beginPath(); x.arc(ex + px, ey + py, 2.5 + hoverAmount * 0.2, 0, 7); x.fill();
     }
-    if (mood === 'worried' || mood === 'annoyed') { x.beginPath(); x.moveTo(ex - 5, ey - 9 + s * 2); x.lineTo(ex + 5, ey - 9 - s * 2); x.stroke(); }
   }
-  // boca
-  x.strokeStyle = '#111312'; x.lineWidth = 3; x.beginPath();
-  const my = cy + 9;
-  if (mood === 'happy') x.arc(cx, my - 3, 5, 0.1 * Math.PI, 0.9 * Math.PI);
-  else if (mood === 'sad' || mood === 'worried') x.arc(cx, my + 5, 4, 1.15 * Math.PI, 1.85 * Math.PI);
-  else if (mood === 'thinking') x.arc(cx + 4, my, 2, 0, 7);
-  else if (mood === 'dizzy') x.arc(cx, my, 3, 0, Math.PI * 2);
-  else { x.moveTo(cx - 3, my); x.lineTo(cx + 3, my); }
-  x.stroke();
   requestDraw();
 }
 

@@ -8,6 +8,7 @@ const { loopbackUrl } = require('./providers/shared');
 const { readDroppedFiles, FILE_DIALOG_EXTENSIONS, MAX_FILES } = require('./file-attachments');
 const settingsStore = require('./settings-store');
 const { startAlfredNotifications } = require('./integrations/alfred-notifications');
+const { startWindowsMediaSession } = require('./integrations/windows-media-session');
 const { checkAlfredHealth } = require('./integrations/alfred-health');
 const { eventForClaudeHook } = require('./integrations/claude-code-hook-event');
 const claudeCodeSettings = require('./integrations/claude-code-settings');
@@ -31,6 +32,7 @@ let pointerInteracting = false;
 let chatOpen = false;
 let isQuitting = false;
 let stopAlfredNotifications;
+let stopWindowsMediaSession;
 let alfredNotificationsUrl;
 let pendingAttachments = [];
 const activeQuestions = new Map();
@@ -55,13 +57,16 @@ function openSettings() {
     win.hide();
     send({ type: 'chat-dismissed' });
   }
+  const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const settingsWidth = Math.min(440, workArea.width);
+  const settingsHeight = Math.min(650, workArea.height);
   settingsWindow = new BrowserWindow({
-    width: 440,
-    height: 650,
-    minWidth: 400,
-    minHeight: 520,
-    maxWidth: 520,
-    maxHeight: 700,
+    width: settingsWidth,
+    height: settingsHeight,
+    minWidth: Math.min(320, settingsWidth),
+    minHeight: Math.min(420, settingsHeight),
+    maxWidth: Math.min(640, workArea.width),
+    maxHeight: workArea.height,
     title: 'Configurações do Pip',
     autoHideMenuBar: true,
     backgroundColor: '#211d2f',
@@ -139,7 +144,6 @@ function hideLater(delay = 7000) {
     else {
       pointerInteracting = false;
       win.setIgnoreMouseEvents(true, { forward: true });
-      win.hide();
     }
   }, delay);
 }
@@ -216,6 +220,7 @@ function createTray() {
         win.hide();
         send({ type: 'chat-dismissed' });
       } else if (!paused) {
+        reveal();
         pollPointer();
       }
     } },
@@ -380,6 +385,9 @@ app.whenReady().then(() => {
     send({ type: 'hello' });
     hideLater(6500);
     syncAlfredNotifications().catch((error) => console.error('Alfred notifications:', error));
+    if (process.platform === 'win32') {
+      stopWindowsMediaSession = startWindowsMediaSession((media) => send({ type: 'media', media }));
+    }
   });
   ipcMain.on('interactive', (_, v) => {
     pointerInteracting = !!v;
@@ -585,5 +593,6 @@ app.on('before-quit', () => {
   clearTimeout(pointerPollTimer);
   for (const controller of activeQuestions.values()) controller.abort();
   stopAlfredNotifications?.();
+  stopWindowsMediaSession?.();
 });
 }
