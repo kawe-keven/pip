@@ -6,7 +6,9 @@ componentes estão descritos em [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Demonstração
 
-<video src="./media/pip-demo.mp4" autoplay loop muted playsinline controls width="100%"></video>
+![Demonstração do Pip em loop](media/pip-demo.gif)
+
+[Assistir ao vídeo completo com áudio (MP4)](https://raw.githubusercontent.com/kawe-keven/pip/pip-gitignore-only/media/pip-demo.mp4)
 
 ## Começar
 
