@@ -1,23 +1,26 @@
 <!doctype html>
 <html lang="pt-BR">
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'self' file: 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="./node_modules/bootstrap/dist/css/bootstrap.min.css">
 <title>Configurações do Pip</title>
 <style>
   :root{color-scheme:dark;font:14px/1.5 "Segoe UI",sans-serif;background:#111216;color:#f0f0f2;--surface:#17181d;--line:#2b2c32;--muted:#a7a8af;--accent:#f2f2f5;--accent-ink:#17181d}
   *{box-sizing:border-box}
-  body{margin:0;padding:24px;background:radial-gradient(ellipse at 50% -18%,#28293b 0%,#111216 58%)}
+  body{margin:0;min-width:320px;background:radial-gradient(ellipse at 50% -18%,#28293b 0%,#111216 58%)}
+  .settings-shell{max-width:640px}
+  @media(max-width:399px){.settings-shell{padding:12px!important}.section{padding:11px}}
   h1{font-size:21px;line-height:1.25;margin:0 0 5px;font-weight:650;letter-spacing:0}
   p{color:var(--muted);margin:0 0 18px}
   label{display:block;font-weight:600;margin:14px 0 6px}
-  input,select{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:8px;background:#111216;color:#f0f0f2;font:inherit}
-  input:focus,select:focus{outline:1px solid var(--accent);outline-offset:1px}
+  input,select,.form-control,.form-select{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:8px;background-color:#111216;color:#f0f0f2;font:inherit}
+  input:focus,select:focus,.form-control:focus,.form-select:focus{border-color:#8b8c95;background-color:#111216;color:#f0f0f2;box-shadow:0 0 0 2px #ffffff18}
   input:disabled,select:disabled{opacity:.6}
-  .section{padding:14px;margin-top:14px;border:1px solid #292a30;border-radius:12px;background:#17181d}
+  .section{padding:14px;margin:0;border:1px solid #292a30;border-radius:8px;background:#17181d}
   .hint{font-size:12px;color:var(--muted);margin:6px 0 0}
   .check{display:flex;align-items:center;gap:8px;font-weight:400;margin:10px 0 0}
-  .check input{flex:none;width:16px;height:16px;margin:0;padding:0;accent-color:var(--accent)}
+  .check input,.check .form-check-input{flex:none;width:16px;height:16px;margin:0;padding:0;accent-color:var(--accent)}
   #status{min-height:22px;margin:12px 0 0;font-size:13px;color:var(--accent)}
   #save{width:100%;border:0;border-radius:8px;background:var(--accent);color:var(--accent-ink);font:600 14px "Segoe UI",sans-serif;padding:11px;cursor:pointer;transition:filter 120ms ease}
   #save:hover{filter:brightness(1.06)}
@@ -30,45 +33,61 @@
   #alfred-connection-status[data-state="offline"]{color:#f2b98f}
 </style>
 <body>
-  <h1>Configurações do Pip</h1>
-  <p>Escolha como o Pip responde às suas perguntas.</p>
+  <main class="container-fluid settings-shell px-3 py-3 p-sm-4">
+  <header class="mb-3">
+    <h1>Configurações do Pip</h1>
+    <p>Escolha como o Pip responde às suas perguntas.</p>
+  </header>
 
-  <label for="provider">Provedor de IA</label>
-  <select id="provider">
-    <option value="gemini">Gemini</option>
-    <option value="alfred">Alfred local</option>
-  </select>
-  <p id="override-note" class="hint" hidden>Uma variável de ambiente está substituindo esta opção.</p>
+  <div class="row g-3">
+    <div class="col-12">
+      <label class="form-label" for="provider">Provedor de IA</label>
+      <select id="provider" class="form-select">
+        <option value="gemini">Gemini</option>
+        <option value="alfred">Alfred local</option>
+      </select>
+      <p id="override-note" class="hint" hidden>Uma variável de ambiente está substituindo esta opção.</p>
+    </div>
 
-  <section id="gemini-section" class="section">
-    <label for="api-key">Chave da API do Gemini</label>
-    <input id="api-key" type="password" autocomplete="new-password" maxlength="1024" placeholder="Cole sua chave aqui">
-    <p id="key-state" class="hint">A chave será criptografada pelo Windows e não voltará a aparecer aqui.</p>
-    <label class="check"><input id="remove-key" type="checkbox"> Remover a chave salva</label>
-  </section>
+    <section id="gemini-section" class="section col-12">
+      <label class="form-label" for="api-key">Chave da API do Gemini</label>
+      <input id="api-key" class="form-control" type="password" autocomplete="new-password" maxlength="1024" placeholder="Cole sua chave aqui">
+      <p id="key-state" class="hint">A chave será criptografada pelo Windows e não voltará a aparecer aqui.</p>
+      <label class="check form-check"><input id="remove-key" class="form-check-input" type="checkbox"> Remover a chave salva</label>
+    </section>
 
-  <section id="alfred-section" class="section" hidden>
-    <label for="alfred-url">Endereço local do Alfred</label>
-    <input id="alfred-url" type="url" spellcheck="false" placeholder="http://127.0.0.1:8000">
-    <p id="url-note" class="hint">Por segurança, só aceito endereços locais.</p>
-    <label for="alfred-session">Sessão</label>
-    <input id="alfred-session" type="text" maxlength="120" placeholder="pip-editor">
-    <button id="alfred-check" type="button">Testar conexão com Alfred</button>
-    <p id="alfred-connection-status" role="status" aria-live="polite"></p>
-  </section>
+    <section id="alfred-section" class="section col-12" hidden>
+      <label class="form-label" for="alfred-url">Endereço local do Alfred</label>
+      <input id="alfred-url" class="form-control" type="url" spellcheck="false" placeholder="http://127.0.0.1:8000">
+      <p id="url-note" class="hint">Por segurança, só aceito endereços locais.</p>
+      <div class="row g-3 mt-1">
+        <div class="col-12 col-sm-6">
+          <label class="form-label" for="alfred-session">Sessão</label>
+          <input id="alfred-session" class="form-control" type="text" maxlength="120" placeholder="pip-editor">
+        </div>
+        <div class="col-12 col-sm-6 d-flex align-items-end">
+          <button id="alfred-check" class="btn w-100" type="button">Testar conexão com Alfred</button>
+        </div>
+      </div>
+      <p id="alfred-connection-status" role="status" aria-live="polite"></p>
+    </section>
 
-  <section id="windows-startup-section" class="section" hidden>
-    <label class="check"><input id="start-with-windows" type="checkbox"> Iniciar o Pip com o Windows</label>
-    <p class="hint">O Pip ficará disponível na área de notificação quando você entrar no Windows.</p>
-  </section>
+    <section id="windows-startup-section" class="section col-12 col-sm-6" hidden>
+      <label class="check form-check"><input id="start-with-windows" class="form-check-input" type="checkbox"> Iniciar o Pip com o Windows</label>
+      <p class="hint">O Pip ficará disponível na área de notificação quando você entrar no Windows.</p>
+    </section>
 
-  <section id="claude-code-section" class="section" hidden>
-    <label class="check"><input id="claude-code-hooks" type="checkbox"> Acompanhar sessões do Claude Code</label>
-    <p id="claude-code-note" class="hint">O Pip registra hooks locais no Claude Code e faz uma cópia de segurança das configurações existentes. Os hooks mostram estados; não enviam prompts, comandos ou arquivos ao Pip.</p>
-  </section>
+    <section id="claude-code-section" class="section col-12 col-sm-6" hidden>
+      <label class="check form-check"><input id="claude-code-hooks" class="form-check-input" type="checkbox"> Acompanhar sessões do Claude Code</label>
+      <p id="claude-code-note" class="hint">O Pip registra hooks locais no Claude Code e faz uma cópia de segurança das configurações existentes. Os hooks mostram estados; não enviam prompts, comandos ou arquivos ao Pip.</p>
+    </section>
 
-  <div id="status" role="status" aria-live="polite"></div>
-  <button id="save" type="button">Salvar configurações</button>
+    <div class="col-12">
+      <div id="status" role="status" aria-live="polite"></div>
+      <button id="save" class="btn" type="button">Salvar configurações</button>
+    </div>
+  </div>
+  </main>
   <script>
     const provider = document.getElementById('provider');
     const geminiSection = document.getElementById('gemini-section');
