@@ -30,6 +30,7 @@ while ($true) {
         $payload = [ordered]@{
           title = [string]$properties.Title
           artist = [string]$properties.Artist
+          genres = @($properties.Genres | ForEach-Object { [string]$_ })
           playing = ($status -eq 'Playing')
         }
       }

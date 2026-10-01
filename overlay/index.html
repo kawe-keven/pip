@@ -5,28 +5,36 @@
   :root{--panel:#17181d;--panel-raised:#24252a;--border:#2b2c32;--text:#f0f0f2;--muted:#a7a8af;--accent:#f2f2f5;--accent-ink:#17181d}
   html,body{margin:0;background:transparent;overflow:hidden;font:14px/1.45 "Segoe UI",sans-serif}
   canvas{position:absolute;left:0;top:0;width:640px;height:250px;z-index:2;pointer-events:none}
-  #compact-island{position:absolute;z-index:1;left:50%;top:0;width:180px;height:72px;box-sizing:border-box;transform:translateX(-50%);
-    border:1px solid #121317;border-top:0;border-radius:0 0 22px 22px;background:#030405;box-shadow:0 10px 28px #0008;
-    transition:width 220ms ease,height 220ms ease,border-radius 220ms ease}
-  body.media-available #compact-island{width:310px;height:66px;border-radius:0 0 24px 24px}
-  body.island-expanded #compact-island{width:420px;height:auto;min-height:96px;padding:12px 18px 14px;border-radius:0 0 24px 24px}
-  #island-media{display:none;align-items:center;gap:12px;min-width:0;height:100%;color:var(--text)}
+  #compact-island{position:absolute;z-index:1;left:50%;top:0;width:78px;height:6px;box-sizing:border-box;transform:translateX(-50%);overflow:hidden;
+    border:1px solid #121317;border-top:0;border-radius:0 0 5px 5px;background:#030405;box-shadow:0 3px 12px #0008;cursor:pointer;
+    transition:width 220ms ease,height 220ms ease,border-radius 220ms ease,padding 220ms ease}
+  body.island-expanded #compact-island{width:128px;height:66px;min-height:66px;padding:0;border-radius:0 0 14px 14px}
+  body.island-expanded.has-notification #compact-island{width:420px;height:96px;min-height:96px;padding:0;border-radius:0 0 14px 14px}
+  body.media-available.island-expanded:not(.has-notification) #compact-island{width:310px;height:66px;min-height:66px;padding:0;border-radius:0 0 14px 14px}
+  body.file-dragging #compact-island{width:310px;height:66px;min-height:66px;padding:0;border-radius:0 0 14px 14px}
+  body.media-playing.island-expanded #compact-island{box-shadow:0 10px 28px #0008}
+  #island-collapse{position:absolute;z-index:4;top:8px;right:9px;display:none;place-items:center;width:24px;height:24px;padding:0;
+    border:0;border-radius:7px;background:#ffffff0d;color:#c4c5cb;font:600 17px/1 "Segoe UI",sans-serif;cursor:pointer}
+  body.island-expanded #island-collapse{display:grid}
+  #island-collapse:hover{background:#ffffff20;color:#fff}
+  #island-collapse:focus-visible{outline:2px solid #f0f0f2;outline-offset:2px}
+  #island-media{position:relative;z-index:1;display:none;align-items:center;gap:12px;box-sizing:border-box;min-width:0;height:100%;padding-left:100px;color:var(--text)}
   body.media-available #island-media{display:flex}
-  .island-mascot-button{position:relative;display:block;flex:none;width:52px;height:34px;padding:0;border:1px solid #b9b9b9;border-radius:45%;
-    background:linear-gradient(180deg,#f8f8f8 0%,#d0d0d0 48%,#999 100%);box-shadow:0 2px 8px #0008;cursor:pointer}
-  .island-mascot-eye{position:absolute;top:9px;width:5px;height:14px;border-radius:50%;background:#050505}
-  .island-mascot-eye:first-child{left:15px}
-  .island-mascot-eye:last-child{right:15px}
+  body.file-dragging #island-media{opacity:0}
+  #island-pet-button{position:absolute;z-index:3;top:0;left:0;display:none;width:80px;height:66px;padding:0;border:0;background:transparent;cursor:pointer}
+  body.island-expanded.media-available #island-pet-button{display:block}
   #island-track{display:flex;flex:1;min-width:0;flex-direction:column;line-height:1.3}
   #island-title,#island-artist{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #island-title{font-size:12px;font-weight:600;color:#f3f3f4}
   #island-artist{font-size:11px;color:#a7a8af}
-  #island-status{flex:none;color:#a7a8af;font-size:10px}
-  #island-notification{display:none;max-height:48px;overflow:hidden;margin-top:7px;padding:8px 10px;border-top:1px solid #ffffff18;
+  #island-status{flex:none;margin-right:30px;color:#a7a8af;font-size:10px}
+  #island-notification{display:none;max-height:48px;overflow:hidden;margin-top:7px;padding:8px 42px 8px 100px;border-top:1px solid #ffffff18;
     color:#e8e8eb;font-size:12px;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere}
+  #drop-hint{position:absolute;z-index:5;right:38px;bottom:7px;left:100px;padding:6px 8px;border:1px solid #515260;border-radius:9px;
+    background:#17181d;color:var(--text);text-align:center;font-size:12px;pointer-events:none;display:none}
+  body.file-dragging #drop-hint{display:block}
   body.has-notification #island-notification{display:block}
-  body.island-expanded canvas{opacity:0}
-  body.media-available:not(.island-expanded) canvas{opacity:0}
+  body:not(.island-expanded) #island-media,body:not(.island-expanded) #island-notification{display:none}
   body.chat-open #compact-island{display:none}
   #bubble{display:none}
   #chat{position:absolute;z-index:1;left:0;right:0;top:0;bottom:8px;box-sizing:border-box;padding:7px 9px 9px;
@@ -46,6 +54,8 @@
   .chat-bubble-icon::after{position:absolute;left:2px;bottom:-2px;width:4px;height:4px;background:#f1f1f3;content:"";clip-path:polygon(0 0,100% 0,0 100%)}
   #chat-stage{position:relative;display:flex;flex:1;min-height:0;flex-direction:column;gap:7px;overflow:hidden;padding:12px 14px 13px 85px;
     border-radius:15px;background:radial-gradient(ellipse at 52% 108%,#3d3e69 0%,#252631 32%,#17181d 68%)}
+  body.chat-open.file-dragging #chat-stage::after{position:absolute;z-index:4;top:8px;left:85px;right:14px;padding:7px 9px;border:1px solid #515260;border-radius:8px;
+    background:#17181d;color:var(--text);text-align:center;font-size:12px;content:"Solte para anexar ao Pip"}
   #chat-transcript{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#555660 transparent}
   .chat-entry{padding:7px 9px;margin:3px 0;border-radius:8px;background:#ffffff08;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}
   .chat-entry-user{background:#ffffff0a}
@@ -57,9 +67,6 @@
   .attachment{display:flex;align-items:center;gap:6px;max-width:100%;padding:4px 7px 4px 9px;border-radius:7px;background:#ffffff0d;color:var(--text);font-size:12px}
   .attachment-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .attachment-remove{flex:none;border:0;background:transparent;color:#d4d4da;font-size:16px;line-height:1;cursor:pointer}
-  #drop-hint{position:absolute;z-index:4;top:46px;left:142px;right:20px;padding:6px 8px;border:1px solid #515260;border-radius:9px;
-    background:#17181d;color:var(--text);text-align:center;font-size:12px;pointer-events:none;display:none}
-  body.file-dragging #drop-hint{display:block}
   #chat-form{display:flex;flex:none;gap:8px;align-items:center;min-height:40px;padding:4px 5px 4px 12px;border:1px solid #292a30;border-radius:14px;background:#24252a}
   #chat-input{box-sizing:border-box;flex:1;min-width:0;min-height:28px;max-height:56px;resize:none;border:0;background:transparent;
     color:var(--text);font:13px/1.4 "Segoe UI",sans-serif;padding:5px 0;outline:none}
@@ -69,19 +76,18 @@
   #chat-send[data-cancelling="true"]{width:auto;padding:0 11px;border-radius:16px;background:#d4d4da;font:600 12px "Segoe UI",sans-serif}
   #chat-send:disabled,#chat-close:disabled,#chat-attach:disabled{opacity:.55;cursor:default}
 </style>
-<canvas id="c" width="640" height="250"></canvas>
 <div id="compact-island" aria-label="Dynamic Island do Pip">
+  <canvas id="c" width="640" height="250"></canvas>
+  <button id="island-collapse" type="button" aria-label="Recolher Pip para a linha superior" title="Recolher Pip">⌃</button>
+  <button id="island-pet-button" type="button" aria-label="Abrir conversa com Pip" title="Abrir conversa com Pip"></button>
   <div id="island-media" aria-live="polite">
-    <button class="island-mascot-button" type="button" aria-label="Abrir conversa com Pip" title="Abrir conversa com Pip">
-      <span class="island-mascot-eye" aria-hidden="true"></span><span class="island-mascot-eye" aria-hidden="true"></span>
-    </button>
     <span id="island-track"><strong id="island-title"></strong><span id="island-artist"></span></span>
     <span id="island-status"></span>
   </div>
   <div id="island-notification" aria-live="polite"></div>
+  <div id="drop-hint">Solte para anexar ao Pip</div>
 </div>
 <div id="bubble"></div>
-<div id="drop-hint">Solte para anexar ao Pip</div>
 <section id="chat" aria-label="Conversa com o Pip">
   <div id="chat-head">
     <div id="chat-nav">
@@ -104,6 +110,8 @@
 <script>
 const c = document.getElementById('c'), x = c.getContext('2d'), bub = document.getElementById('bubble');
 const compactIsland = document.getElementById('compact-island');
+const islandCollapse = document.getElementById('island-collapse');
+const islandPetButton = document.getElementById('island-pet-button');
 const islandNotification = document.getElementById('island-notification');
 const islandTitle = document.getElementById('island-title');
 const islandArtist = document.getElementById('island-artist');
@@ -114,29 +122,65 @@ const chatForm = document.getElementById('chat-form'), chatInput = document.getE
 const chatSend = document.getElementById('chat-send');
 const chatAttach = document.getElementById('chat-attach');
 const attachmentList = document.getElementById('attachments');
-let CX = 320, CY = 39;
+let CX = 48, CY = 40;
 let mood = 'idle', moodT = 0, t = 0, look = { x: 0, y: 0 }, gaze = { x: 0, y: 0 };
+let musicPlaying = false, musicStyle = 'calm', musicMotion = 0, musicPhase = 0;
 let blinkFrames = 0, blinkCountdown = 3 + Math.random() * 3, chatOpen = false;
-let pointerOver = false, characterHovered = false, hoverStartedAt = 0, hoverAmount = 0, dropAmount = 0, affection = false, clickHistory = [];
+let pointerOver = false, characterHovered = false, hoverStartedAt = 0, hoverAmount = 0, dropAmount = 0, dropPulse = 0, affection = false, clickHistory = [];
 let entranceAmount = 1, greetingTime = 0, clickAmount = 0;
 let attachedFiles = [], previousFrameAt = 0, animationFramePending = false;
 let activeChatRequestId = null, chatRequestSequence = 0;
-let notificationTimer, islandHovered = false, islandPinnedOpen = false;
+let notificationTimer;
 const MAX_TRANSCRIPT_MESSAGES = 24;
 const COLORS = { idle:'#d4d7d4', happy:'#d7e4d8', worried:'#e4d9c9', sad:'#d1d8df', sleepy:'#d2d2d0', thinking:'#dce2d5', annoyed:'#dfd3d0', dizzy:'#e3dfc9' };
 const STICKY = ['worried', 'sleepy'];
 
 function setMood(m) { mood = m; moodT = 0; }
+function classifyMusicStyle(media) {
+  const genres = Array.isArray(media?.genres) ? media.genres : typeof media?.genre === 'string' ? [media.genre] : [];
+  const genreText = genres.join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (/\b(nu[ -]?metal|metalcore|deathcore|hardcore|thrash|heavy metal|hard rock|punk rock|industrial rock|grunge|metal)\b/.test(genreText)) return 'heavy';
+  if (/\b(acoustic|ambient|chill|classical|lo[ -]?fi|lounge|soft rock|folk|piano|sleep|relax|new age|bossa nova|jazz|meditation|downtempo)\b/.test(genreText)) return 'calm';
+  const artistText = `${media?.artist || ''} ${media?.title || ''}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (/\b(korn|slipknot|linkin park|limp bizkit|system of a down|deftones|disturbed|rammstein|sepultura|metallica|pantera|slayer|rage against the machine|bring me the horizon)\b/.test(artistText)) return 'heavy';
+  return 'calm';
+}
+
+function drawHeadsetBand(cx, top, width, alpha) {
+  if (alpha < 0.01) return;
+  x.save();
+  x.globalAlpha = alpha;
+  x.lineCap = 'round';
+  x.strokeStyle = '#252a28'; x.lineWidth = 4.5;
+  x.beginPath(); x.moveTo(cx - width * 0.34, top + 7);
+  x.bezierCurveTo(cx - width * 0.34, top - 14, cx + width * 0.34, top - 14, cx + width * 0.34, top + 7); x.stroke();
+  x.strokeStyle = '#e6e9e6'; x.lineWidth = 1;
+  x.beginPath(); x.moveTo(cx - width * 0.28, top + 5);
+  x.bezierCurveTo(cx - width * 0.27, top - 10, cx + width * 0.27, top - 10, cx + width * 0.28, top + 5); x.stroke();
+  x.restore();
+}
+
+function drawHeadsetCups(cx, cy, width, alpha) {
+  if (alpha < 0.01) return;
+  x.save();
+  x.globalAlpha = alpha;
+  for (const side of [-1, 1]) {
+    const cupX = side < 0 ? cx - width / 2 - 4 : cx + width / 2 - 5;
+    const cup = x.createLinearGradient(cupX, cy - 8, cupX + 9, cy + 8);
+    cup.addColorStop(0, '#262c29'); cup.addColorStop(0.5, '#555e58'); cup.addColorStop(1, '#202522');
+    x.beginPath(); x.roundRect(cupX, cy - 8, 9, 17, 4); x.fillStyle = cup; x.fill();
+    x.strokeStyle = '#d9ded9'; x.lineWidth = 0.8; x.stroke();
+  }
+  x.restore();
+}
+
 function say(text, ms = 7000) {
   if (chatOpen) { chatMessage.textContent = text; return; }
   islandNotification.textContent = text;
-  document.body.classList.add('has-notification', 'island-expanded');
+  document.body.classList.add('has-notification');
   clearTimeout(notificationTimer);
   if (ms > 0) notificationTimer = setTimeout(() => {
     document.body.classList.remove('has-notification');
-    if (!islandHovered && !islandPinnedOpen && !document.body.classList.contains('media-playing')) {
-      document.body.classList.remove('island-expanded');
-    }
   }, ms);
 }
 
@@ -145,22 +189,42 @@ function updateMedia(media) {
   const artist = typeof media?.artist === 'string' ? media.artist.trim() : '';
   const available = !!(title || artist);
   const playing = available && media?.playing === true;
+  musicPlaying = playing;
+  musicStyle = classifyMusicStyle(media);
+  if (playing && !document.body.classList.contains('media-playing')) musicPhase = 0;
   document.body.classList.toggle('media-available', available);
   document.body.classList.toggle('media-playing', playing);
-  if (playing) document.body.classList.add('island-expanded');
-  else if (!islandHovered && !islandPinnedOpen && !document.body.classList.contains('has-notification')) {
-    document.body.classList.remove('island-expanded');
-  }
   islandTitle.textContent = title || 'Reproduzindo';
   islandArtist.textContent = artist;
   islandStatus.textContent = media?.playing ? 'TOCANDO' : 'PAUSADA';
 }
 
+function islandPoint(clientX, clientY) {
+  const bounds = c.getBoundingClientRect();
+  return { x: clientX - bounds.left, y: clientY - bounds.top };
+}
+
+function isPetAtClientPoint(clientX, clientY, radius = 58) {
+  const point = islandPoint(clientX, clientY);
+  return Math.hypot(point.x - CX, point.y - CY) < radius;
+}
+
+function movePetToChat() {
+  chat.prepend(c);
+  CX = 52;
+  CY = 196;
+}
+
+function movePetToIsland() {
+  compactIsland.prepend(c);
+  CX = 48;
+  CY = 40;
+}
+
 function openChat() {
   if (chatOpen) return;
   chatOpen = true;
-  CX = 52;
-  CY = 145;
+  movePetToChat();
   document.body.classList.add('chat-open');
   bub.style.display = 'none';
   window.api.openChat();
@@ -182,8 +246,7 @@ function closeChat() {
   if (!chatOpen) return;
   cancelActiveChatRequest();
   chatOpen = false;
-  CX = 320;
-  CY = 39;
+  movePetToIsland();
   document.body.classList.remove('chat-open');
   window.api.closeChat();
 }
@@ -248,14 +311,17 @@ async function attachFiles(result) {
 }
 
 function isFileDropTarget(event) {
-  return chat.contains(event.target) || Math.hypot(event.clientX - CX, event.clientY - CY) < 58;
+  return chat.contains(event.target) || compactIsland.contains(event.target) || isPetAtClientPoint(event.clientX, event.clientY);
 }
 
 document.addEventListener('dragover', (event) => {
   if (!Array.from(event.dataTransfer?.types || []).includes('Files')) return;
   event.preventDefault();
+  const wasDraggingOverPip = document.body.classList.contains('file-dragging');
   const accepted = chatOpen || isFileDropTarget(event);
   document.body.classList.toggle('file-dragging', accepted);
+  if (accepted) document.body.classList.add('island-expanded');
+  if (accepted && !wasDraggingOverPip) dropPulse = 1;
   if (accepted) event.dataTransfer.dropEffect = 'copy';
 });
 document.addEventListener('dragleave', (event) => {
@@ -274,7 +340,11 @@ document.addEventListener('drop', (event) => {
 window.api.onEvent((e) => {
   switch (e.type) {
     case 'hello': entranceAmount = 0; greetingTime = 1.6; setMood('happy'); say('Oi! Estou aqui quando você precisar.', 4500); break;
-    case 'cursor': look = { x: Math.max(-180, Math.min(180, e.x - CX)), y: Math.max(-100, Math.min(120, e.y - CY)) }; break;
+    case 'cursor': {
+      const point = islandPoint(e.x, e.y);
+      look = { x: Math.max(-180, Math.min(180, point.x - CX)), y: Math.max(-100, Math.min(120, point.y - CY)) };
+      break;
+    }
     case 'worried': setMood('worried'); if (e.text) say(e.text, 6000); break;
     case 'relieved': if (mood === 'worried') { setMood('happy'); say('Sem erros agora!', 3000); } break;
     case 'saved': if (!STICKY.includes(mood)) setMood('happy'); break;
@@ -292,28 +362,28 @@ window.api.onEvent((e) => {
     case 'chat-opened': chatInput.focus(); break;
     case 'chat-dismissed':
       chatOpen = false;
-      CX = 320;
-      CY = 39;
+      movePetToIsland();
       document.body.classList.remove('chat-open');
       break;
     case 'media': updateMedia(e.media); break;
   }
 });
 
-compactIsland.addEventListener('mouseenter', () => {
-  islandHovered = true;
-  document.body.classList.add('island-expanded');
+islandCollapse.addEventListener('click', (event) => {
+  event.stopPropagation();
+  document.body.classList.remove('island-expanded');
 });
-compactIsland.addEventListener('mouseleave', () => {
-  islandHovered = false;
-  if (!document.body.classList.contains('has-notification') && !islandPinnedOpen && !document.body.classList.contains('media-playing')) {
-    document.body.classList.remove('island-expanded');
-  }
+islandPetButton.addEventListener('click', (event) => {
+  event.stopPropagation();
+  clickAmount = 1;
+  openChat();
 });
 
 document.addEventListener('mousemove', (e) => {
-  const onCharacter = Math.hypot(e.clientX - CX, e.clientY - CY) < 74;
-  const over = onCharacter || compactIsland.contains(e.target) || bub.contains(e.target) || chat.contains(e.target);
+  const onPetSurface = chatOpen ? chat.contains(e.target) : compactIsland.contains(e.target);
+  const point = islandPoint(e.clientX, e.clientY);
+  const onCharacter = onPetSurface && Math.hypot(point.x - CX, point.y - CY) < 74;
+  const over = compactIsland.contains(e.target) || bub.contains(e.target) || chat.contains(e.target);
   if (over !== pointerOver) {
     pointerOver = over;
     window.api.setInteractive(over);
@@ -327,31 +397,14 @@ document.addEventListener('mousemove', (e) => {
 });
 document.addEventListener('click', (event) => {
   if (compactIsland.contains(event.target)) {
-    if (event.target.closest('.island-note-icon')) {
+    if (document.body.classList.contains('island-expanded')
+      && isPetAtClientPoint(event.clientX, event.clientY, 54)) {
       clickAmount = 1;
       openChat();
-      return;
     }
-    if (Math.hypot(event.clientX - CX, event.clientY - CY) < 54 && !document.body.classList.contains('media-available')) {
-      clickAmount = 1;
-      openChat();
-    } else {
-      islandPinnedOpen = !islandPinnedOpen;
-      document.body.classList.toggle('island-expanded', islandPinnedOpen || islandHovered || document.body.classList.contains('has-notification') || document.body.classList.contains('media-playing'));
-    }
+    document.body.classList.add('island-expanded');
     return;
   }
-  if (Math.hypot(event.clientX - CX, event.clientY - CY) >= 74) return;
-  clickAmount = 1;
-  const now = Date.now();
-  clickHistory = clickHistory.filter((time) => now - time < 900);
-  clickHistory.push(now);
-  if (clickHistory.length >= 3) {
-    setMood('dizzy');
-    clickHistory = [];
-  } else if (clickHistory.length === 2) setMood('annoyed');
-  else setMood('happy');
-  openChat();
 });
 bub.addEventListener('click', () => { bub.style.display = 'none'; });
 document.getElementById('chat-close').addEventListener('click', closeChat);
@@ -419,45 +472,93 @@ function draw(timestamp) {
   const easing = 1 - Math.exp(-elapsed * 10);
   previousFrameAt = timestamp;
   t += elapsed; moodT += elapsed;
+  musicMotion += ((musicPlaying ? 1 : 0) - musicMotion) * (1 - Math.exp(-elapsed * 3.5));
+  if (musicPlaying) musicPhase += elapsed;
   if (characterHovered && hoverStartedAt && !affection && Date.now() - hoverStartedAt >= 2000) affection = true;
   hoverAmount += ((characterHovered ? 1 : 0) - hoverAmount) * easing;
   const dropTarget = document.body.classList.contains('file-dragging') ? 1 : 0;
-  dropAmount += (dropTarget - dropAmount) * easing;
+  dropAmount += (dropTarget - dropAmount) * (1 - Math.exp(-elapsed * (dropTarget ? 7 : 5)));
+  dropPulse *= Math.exp(-elapsed * 4.5);
   if (!STICKY.includes(mood) && mood !== 'thinking' && moodT > 3) setMood('idle');
   x.clearRect(0, 0, 640, 250);
-  let ox = 0, oy = (1 - entranceAmount) * -38, sy = 1 + Math.sin(t * 2) * 0.025;
+  let ox = 0, oy = (1 - entranceAmount) * -38, sy = 1 + Math.sin(t * 2) * 0.025, musicTilt = 0;
   entranceAmount += (1 - entranceAmount) * (1 - Math.exp(-elapsed * 7));
   greetingTime = Math.max(0, greetingTime - elapsed);
   clickAmount += (0 - clickAmount) * (1 - Math.exp(-elapsed * 14));
   if (mood === 'happy') oy = -Math.abs(Math.sin(moodT * 9)) * 18 * Math.max(0, 1 - moodT / 1.2);
   if (mood === 'worried') ox = Math.sin(t * 40) * 1.5;
   if (mood === 'sleepy') sy = 0.9 + Math.sin(t) * 0.03;
-  const w = 72 + hoverAmount * 2 + clickAmount * 4, h = (46 + hoverAmount * 2) * sy * (1 - clickAmount * 0.12), cx = CX + ox, cy = CY + oy + (46 - h) / 2;
+  if (musicMotion > 0.01) {
+    if (musicStyle === 'heavy') {
+      const headBeat = Math.sin(musicPhase * 8.5);
+      const downstroke = Math.max(0, headBeat);
+      oy += headBeat * 4.5 * musicMotion;
+      sy *= 1 - downstroke * 0.09 * musicMotion;
+    } else {
+      const nod = Math.sin(musicPhase * 4.2);
+      oy += nod * 2.5 * musicMotion;
+      sy *= 1 + Math.cos(musicPhase * 4.2) * 0.018 * musicMotion;
+      musicTilt = nod * 0.045 * musicMotion;
+    }
+  }
+  const receiveLift = Math.sin((1 - dropPulse) * Math.PI) * dropPulse * 4;
+  const w = 64 + hoverAmount * 2 + clickAmount * 4 + dropPulse * 2;
+  const h = (42 + hoverAmount * 2) * sy * (1 - clickAmount * 0.12) * (1 - dropPulse * 0.06);
+  const cx = CX + ox, cy = CY + oy + (42 - h) / 2 - receiveLift;
+  const shellRadius = h * 0.34;
+  x.save(); x.translate(cx, cy); x.rotate(musicTilt); x.translate(-cx, -cy);
+  if (musicStyle === 'calm') drawHeadsetBand(cx, cy - h / 2, w, musicMotion);
   if (greetingTime > 0 && dropAmount < 0.1) {
     const wave = Math.sin((1.6 - greetingTime) * 13) * Math.min(1, greetingTime * 2);
     x.strokeStyle = '#c7d4c8'; x.lineWidth = 5; x.lineCap = 'round';
     x.beginPath(); x.moveTo(cx + 39, cy + 12); x.quadraticCurveTo(cx + 54, cy + 10 + wave * 7, cx + 49, cy - 3 + wave * 13); x.stroke();
     x.fillStyle = '#e2e9e2'; x.beginPath(); x.arc(cx + 49, cy - 3 + wave * 13, 4, 0, Math.PI * 2); x.fill();
   }
-  const shell = x.createLinearGradient(cx, cy - h / 2, cx, cy + h / 2);
-  shell.addColorStop(0, '#f7f8f6'); shell.addColorStop(0.48, COLORS[mood]); shell.addColorStop(1, '#a5a9a6');
+  const top = cy - h / 2, bottom = cy + h / 2, left = cx - w / 2, right = cx + w / 2;
+  const shell = x.createLinearGradient(cx, top, cx, bottom);
+  shell.addColorStop(0, '#ffffff'); shell.addColorStop(0.16, '#f4f6f3'); shell.addColorStop(0.55, COLORS[mood]); shell.addColorStop(1, '#929994');
   x.fillStyle = shell;
-  x.shadowColor = '#00000045'; x.shadowBlur = 8; x.shadowOffsetY = 4;
-  if (dropAmount < 0.01) {
-    x.beginPath(); x.roundRect(cx - w / 2, cy - h / 2, w, h, Math.min(h * 0.38, w * 0.24)); x.fill();
-  } else {
-    const left = cx - w / 2, right = cx + w / 2, top = cy - h / 2, bottom = cy + h / 2;
-    const rim = top + 10 * dropAmount;
-    x.beginPath(); x.moveTo(left, rim); x.lineTo(right, rim); x.lineTo(right, bottom - 8); x.quadraticCurveTo(right, bottom, right - 8, bottom);
-    x.lineTo(left + 8, bottom); x.quadraticCurveTo(left, bottom, left, bottom - 8); x.closePath(); x.fill();
-    x.strokeStyle = '#666c67'; x.lineWidth = 2; x.lineJoin = 'round';
-    x.beginPath(); x.moveTo(left + 2, rim); x.lineTo(cx - 5, top - 8 * dropAmount); x.lineTo(cx - 2, rim + 7); x.closePath(); x.fillStyle = '#eef0ed'; x.fill(); x.stroke();
-    x.beginPath(); x.moveTo(right - 2, rim); x.lineTo(cx + 5, top - 8 * dropAmount); x.lineTo(cx + 2, rim + 7); x.closePath(); x.fillStyle = '#adb2ad'; x.fill(); x.stroke();
-    x.beginPath(); x.moveTo(cx - 3, top - 8 * dropAmount); x.lineTo(cx, rim + 6); x.lineTo(cx + 3, top - 8 * dropAmount); x.stroke();
-  }
+  x.shadowColor = '#00000055'; x.shadowBlur = 11; x.shadowOffsetY = 5;
+  x.beginPath(); x.roundRect(left, top, w, h, shellRadius); x.fill();
+  x.save();
+  x.beginPath(); x.roundRect(left, top, w, h, shellRadius); x.clip();
+  const highlight = x.createRadialGradient(cx - w * 0.28, top + h * 0.18, 1, cx - w * 0.28, top + h * 0.18, w * 0.72);
+  highlight.addColorStop(0, '#ffffffa8'); highlight.addColorStop(0.42, '#ffffff38'); highlight.addColorStop(1, '#ffffff00');
+  x.fillStyle = highlight; x.fillRect(left, top, w, h);
+  const sideShade = x.createLinearGradient(left, cy, right, cy);
+  sideShade.addColorStop(0, '#ffffff00'); sideShade.addColorStop(0.72, '#61686108'); sideShade.addColorStop(1, '#343a3540');
+  x.fillStyle = sideShade; x.fillRect(left, top, w, h);
+  x.restore();
   x.shadowColor = 'transparent'; x.shadowBlur = 0; x.shadowOffsetY = 0;
-  x.strokeStyle = '#858a85'; x.lineWidth = 1;
-  x.beginPath(); x.roundRect(cx - w / 2, cy - h / 2, w, h, Math.min(h * 0.38, w * 0.24)); x.stroke();
+  x.strokeStyle = '#747c7580'; x.lineWidth = 1;
+  x.beginPath(); x.roundRect(left, top, w, h, shellRadius); x.stroke();
+  x.strokeStyle = '#ffffffa0'; x.lineWidth = 1;
+  x.beginPath(); x.moveTo(left + shellRadius, top + 1); x.quadraticCurveTo(cx, top - 0.5, right - shellRadius, top + 1); x.stroke();
+  if (musicStyle === 'calm') drawHeadsetCups(cx, cy, w, musicMotion);
+  if (dropAmount > 0.01) {
+    const opening = dropAmount * dropAmount * (3 - 2 * dropAmount);
+    const halfMouth = 17 * opening;
+    const cavity = x.createLinearGradient(cx, top + 1, cx, top + 13 * opening);
+    cavity.addColorStop(0, '#343a36'); cavity.addColorStop(1, '#111512');
+    x.beginPath(); x.moveTo(cx - halfMouth, top + 1);
+    x.quadraticCurveTo(cx, top + 5 * opening, cx + halfMouth, top + 1);
+    x.lineTo(cx + halfMouth, top + 4 * opening);
+    x.quadraticCurveTo(cx, top + 12 * opening, cx - halfMouth, top + 4 * opening);
+    x.closePath(); x.fillStyle = cavity; x.fill();
+    x.shadowColor = '#00000038'; x.shadowBlur = 4 * opening; x.shadowOffsetY = 2 * opening;
+    for (const side of [-1, 1]) {
+      const flap = x.createLinearGradient(cx, top - 10 * opening, cx + side * 28 * opening, top + 5 * opening);
+      flap.addColorStop(0, side < 0 ? '#fbfcfa' : '#e1e5e1');
+      flap.addColorStop(0.55, side < 0 ? '#d8ddd8' : '#c4cbc5');
+      flap.addColorStop(1, side < 0 ? '#a5ada6' : '#939c95');
+      x.beginPath(); x.moveTo(cx, top + 2 * opening);
+      x.bezierCurveTo(cx + side * 8 * opening, top - 3 * opening, cx + side * 20 * opening, top - 11 * opening, cx + side * 28 * opening, top - 5 * opening);
+      x.bezierCurveTo(cx + side * 25 * opening, top + 1 * opening, cx + side * 13 * opening, top + 5 * opening, cx + side * 2 * opening, top + 5 * opening);
+      x.closePath(); x.fillStyle = flap; x.fill();
+      x.strokeStyle = side < 0 ? '#ffffffc0' : '#6f787180'; x.lineWidth = 0.9; x.stroke();
+    }
+    x.shadowColor = 'transparent'; x.shadowBlur = 0; x.shadowOffsetY = 0;
+  }
   if (affection) {
     for (const s of [-1, 1]) {
       const hx = cx + s * (20 + Math.sin(t * 2 + s) * 3);
@@ -473,8 +574,11 @@ function draw(timestamp) {
     blinkCountdown = 3.5 + Math.random() * 4;
   }
   const closed = mood === 'sleepy' || blinkFrames > 0 || mood === 'annoyed';
+  const eyeBob = musicMotion > 0.01
+    ? Math.sin(musicPhase * (musicStyle === 'heavy' ? 8.5 : 4.2)) * (musicStyle === 'heavy' ? 2.8 : 1.5) * musicMotion
+    : Math.sin(t * 2.4) * 0.8;
   for (const s of [-1, 1]) {
-    const ex = cx + s * 16, ey = cy - 3 + dropAmount * 5;
+    const ex = cx + s * 14, ey = cy - 3 + dropAmount * 5 + eyeBob;
     const eyeWidth = 4.2 + hoverAmount * 0.3, eyeHeight = 7.2 + hoverAmount * 0.3;
     x.fillStyle = '#111312'; x.strokeStyle = '#111312'; x.lineWidth = 2; x.lineCap = 'round';
     if (closed) {
@@ -484,8 +588,10 @@ function draw(timestamp) {
       x.stroke();
     } else {
       x.beginPath(); x.ellipse(ex, ey, eyeWidth, eyeHeight, 0, 0, 7); x.fill();
+      x.fillStyle = '#ffffffb0'; x.beginPath(); x.arc(ex - 1.1, ey - 2.5, 1.15, 0, Math.PI * 2); x.fill();
     }
   }
+  x.restore();
   requestDraw();
 }
 
