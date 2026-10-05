@@ -31,6 +31,21 @@
   #alfred-connection-status{min-height:20px;font-size:12px;margin:6px 0 0;color:var(--muted)}
   #alfred-connection-status[data-state="connected"]{color:#a8e6c3}
   #alfred-connection-status[data-state="offline"]{color:#f2b98f}
+  #usage-section{margin-top:14px}
+  .usage-chart{width:100%;height:170px;display:block;overflow:visible}
+  .usage-chart text{fill:#a7a8af;font:10px "Segoe UI",sans-serif}
+  .usage-chart .grid{stroke:#34353d;stroke-width:1}
+  .usage-chart .bar-ai{fill:#b9a6ff}.usage-chart .bar-ide{fill:#84d6b2}
+  .usage-legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:12px}
+  .usage-legend span{display:flex;align-items:center;gap:6px}
+  .usage-dot{width:8px;height:8px;border-radius:50%;background:#b9a6ff}
+  .usage-dot.ide{background:#84d6b2}
+  #usage-status{min-height:20px;color:var(--muted);font-size:12px;margin:8px 0 0}
+  #usage-providers{display:grid;gap:8px;margin-top:8px}
+  #usage-ides{display:grid;gap:8px;margin-top:8px}
+  .usage-provider{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:7px;background:#202127;font-size:12px}
+  .usage-provider strong{font-variant-numeric:tabular-nums}
+  #usage-reset{font-size:12px;color:var(--muted);margin:8px 0 0}
 </style>
 <body>
   <main class="container-fluid settings-shell px-3 py-3 p-sm-4">
@@ -87,6 +102,19 @@
       <button id="save" class="btn" type="button">Salvar configurações</button>
     </div>
   </div>
+  <section id="usage-section" class="section" aria-labelledby="usage-title">
+    <h2 id="usage-title" style="font-size:16px;margin:0 0 3px">Uso de IA e editores</h2>
+    <p class="hint">Histórico local dos últimos 180 dias. O Pip não lê dados de uso de outros aplicativos.</p>
+    <label class="form-label" for="ai-usage-chart">Tokens usados por dia</label>
+    <svg id="ai-usage-chart" class="usage-chart" viewBox="0 0 500 170" role="img" aria-label="Gráfico de tokens de IA por dia"></svg>
+    <div id="usage-providers"></div>
+    <p id="usage-reset"></p>
+    <label class="form-label" for="ide-usage-chart">Perguntas enviadas por editor</label>
+    <svg id="ide-usage-chart" class="usage-chart" viewBox="0 0 500 170" role="img" aria-label="Gráfico de perguntas por editor"></svg>
+    <div class="usage-legend"><span><i class="usage-dot ide"></i>Perguntas observadas pelo Pip</span></div>
+    <div id="usage-ides"></div>
+    <p id="usage-status" role="status" aria-live="polite"></p>
+  </section>
   </main>
   <script>
     const provider = document.getElementById('provider');
@@ -103,6 +131,7 @@
     const claudeCodeHooks = document.getElementById('claude-code-hooks');
     const claudeCodeNote = document.getElementById('claude-code-note');
     const status = document.getElementById('status');
+    const usageStatus = document.getElementById('usage-status');
     let loadedSettings;
 
     function updateSections() {
@@ -121,6 +150,82 @@
         keyState.textContent = 'A chave será criptografada pelo Windows e não voltará a ser exibida aqui.';
       }
       removeKey.disabled = !settings.hasSavedGeminiApiKey;
+    }
+
+    function drawUsageChart(svg, data, valueFor, className, suffix) {
+      const ns = 'http://www.w3.org/2000/svg';
+      svg.replaceChildren();
+      const width = 500;
+      const top = 12;
+      const bottom = 140;
+      const max = Math.max(1, ...data.map(valueFor));
+      for (let line = 0; line <= 3; line += 1) {
+        const y = top + (bottom - top) * line / 3;
+        const grid = document.createElementNS(ns, 'line');
+        grid.setAttribute('x1', '32'); grid.setAttribute('x2', '495'); grid.setAttribute('y1', y); grid.setAttribute('y2', y); grid.setAttribute('class', 'grid');
+        svg.append(grid);
+      }
+      const slot = 463 / Math.max(1, data.length);
+      data.forEach((item, index) => {
+        const value = valueFor(item);
+        const height = value ? Math.max(2, (bottom - top - 8) * value / max) : 0;
+        const bar = document.createElementNS(ns, 'rect');
+        bar.setAttribute('x', 35 + index * slot + slot * 0.2);
+        bar.setAttribute('y', bottom - height);
+        bar.setAttribute('width', Math.max(2, slot * 0.6));
+        bar.setAttribute('height', height);
+        bar.setAttribute('rx', '3'); bar.setAttribute('class', className);
+        bar.setAttribute('aria-label', `${item.label}: ${value.toLocaleString('pt-BR')} ${suffix}`);
+        const title = document.createElementNS(ns, 'title'); title.textContent = `${item.label}: ${value.toLocaleString('pt-BR')} ${suffix}`; bar.append(title);
+        svg.append(bar);
+        if (index % 2 === 0 || index === data.length - 1) {
+          const label = document.createElementNS(ns, 'text');
+          label.setAttribute('x', 35 + index * slot); label.setAttribute('y', '158');
+          label.textContent = item.label.slice(0, 5); svg.append(label);
+        }
+      });
+      const valueLabel = document.createElementNS(ns, 'text');
+      valueLabel.setAttribute('x', '0'); valueLabel.setAttribute('y', '15'); valueLabel.textContent = max.toLocaleString('pt-BR'); svg.append(valueLabel);
+    }
+
+    async function loadUsage() {
+      try {
+        const summary = await window.settingsApi.getUsage();
+        const days = [];
+        for (let offset = 13; offset >= 0; offset -= 1) {
+          const date = new Date(); date.setHours(12, 0, 0, 0); date.setDate(date.getDate() - offset);
+          const key = date.toISOString().slice(0, 10);
+          days.push({ key, label: new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(date) });
+        }
+        const aiRows = new Map(summary.aiByDate.map((row) => [`${row.date}|${row.provider}`, row]));
+        const dailyAi = days.map((day) => ({ label: day.label, total: [...aiRows.values()].filter((row) => row.date === day.key).reduce((sum, row) => sum + row.tokens, 0) }));
+        drawUsageChart(document.getElementById('ai-usage-chart'), dailyAi, (row) => row.total, 'bar-ai', 'tokens');
+        const ideRows = new Map(summary.ideByDate.map((row) => [row.date, row]));
+        const dailyIde = days.map((day) => ({ label: day.label, total: Object.entries(ideRows.get(day.key) || {}).filter(([key]) => key !== 'date').reduce((sum, [, value]) => sum + value, 0) }));
+        drawUsageChart(document.getElementById('ide-usage-chart'), dailyIde, (row) => row.total, 'bar-ide', 'perguntas');
+        const editors = document.getElementById('usage-ides'); editors.replaceChildren();
+        for (const item of summary.ideTotals) {
+          const row = document.createElement('div'); row.className = 'usage-provider';
+          const name = document.createElement('span'); name.textContent = item.ide;
+          const value = document.createElement('strong'); value.textContent = `${item.prompts.toLocaleString('pt-BR')} perguntas`;
+          row.append(name, value); editors.append(row);
+        }
+        const providers = document.getElementById('usage-providers'); providers.replaceChildren();
+        if (!summary.aiByProvider.length) {
+          const empty = document.createElement('p'); empty.className = 'hint'; empty.textContent = 'Ainda não há chamadas registradas pelo Pip.'; providers.append(empty);
+        }
+        for (const item of summary.aiByProvider) {
+          const row = document.createElement('div'); row.className = 'usage-provider';
+          const name = document.createElement('span'); name.textContent = `${item.provider}${item.model ? ` · ${item.model}` : ''}`;
+          const value = document.createElement('strong'); value.textContent = item.tokenDataAvailable ? `${item.tokens.toLocaleString('pt-BR')} tokens · ${item.requests} chamadas` : `tokens não informados · ${item.requests} chamadas`;
+          row.append(name, value); providers.append(row);
+        }
+        const reset = new Date(summary.reset.at);
+        document.getElementById('usage-reset').textContent = `Gemini: a cota diária de requisições (RPD) reinicia por volta de ${reset.toLocaleString('pt-BR')} (horário do Pacífico). Os limites por minuto e os valores de cota variam por modelo e projeto.`;
+        usageStatus.textContent = `${summary.note} Perguntas por IDE são contagens de solicitações, não tokens.`;
+      } catch (error) {
+        usageStatus.textContent = error.message || 'Não foi possível carregar o histórico de uso.';
+      }
     }
 
     provider.addEventListener('change', updateSections);
@@ -196,6 +301,7 @@
       updateSections();
       if (settings.claudeCodeHooksWarning) claudeCodeNote.textContent = settings.claudeCodeHooksWarning;
       if (settings.settingsWarning) status.textContent = settings.settingsWarning;
+      loadUsage();
     }).catch((error) => { status.textContent = error.message || 'Não foi possível carregar as configurações.'; });
   </script>
 </body>

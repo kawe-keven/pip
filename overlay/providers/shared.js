@@ -60,8 +60,8 @@ function loopbackUrl(value, fallback) {
   }
 }
 
-function providerSuccess(text) {
-  return { ok: true, text };
+function providerSuccess(text, usage = null) {
+  return { ok: true, text, ...(usage ? { usage } : {}) };
 }
 
 function providerFailure(text) {

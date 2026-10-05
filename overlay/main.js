@@ -13,6 +13,7 @@ const { startWindowsMediaSession } = require('./integrations/windows-media-sessi
 const { checkAlfredHealth } = require('./integrations/alfred-health');
 const { eventForClaudeHook } = require('./integrations/claude-code-hook-event');
 const claudeCodeSettings = require('./integrations/claude-code-settings');
+const usageStore = require('./usage-store');
 const PORT = 7777;
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_CLAUDE_HOOK_BODY_BYTES = 512 * 1024;
@@ -246,6 +247,7 @@ async function dispatchBridgeRequest(route, data, options = {}) {
   }
 
   if (route === '/claude-hook') {
+    if (data.hook_event_name === 'UserPromptSubmit') usageStore.recordIde('Claude Code').catch(() => {});
     const event = eventForClaudeHook(data);
     if (event) await dispatchBridgeRequest('/event', event);
     return { status: 200, body: {} };
@@ -279,6 +281,9 @@ async function dispatchBridgeRequest(route, data, options = {}) {
       if (controller.signal.aborted) throw controller.signal.reason || Object.assign(new Error('solicitação cancelada'), { name: 'AbortError' });
       const result = typeof response === 'string' ? { ok: true, text: response } : response;
       if (result.ok) {
+        const source = data.source === 'VS Code' ? 'VS Code' : options.localChat ? 'Pip' : '';
+        if (source === 'VS Code') usageStore.recordIde(source).catch(() => {});
+        if (result.provider) usageStore.recordAi({ provider: result.provider, model: result.model, usage: result.usage }).catch(() => {});
         if (options.notify !== false) send({ type: 'answer', text: result.text });
       } else {
         send({ type: 'sad', text: result.text });
@@ -491,6 +496,10 @@ app.whenReady().then(() => {
       claudeCodeHooksEnabled: claudeHooks.enabled,
       claudeCodeHooksWarning: claudeHooks.warning,
     };
+  });
+  ipcMain.handle('usage:get', async (event) => {
+    if (!isSettingsSender(event)) throw new Error('Origem da solicitação inválida.');
+    return usageStore.getSummary();
   });
   ipcMain.on('settings-open', openSettings);
   ipcMain.handle('settings:save', async (event, settings) => {

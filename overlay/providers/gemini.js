@@ -72,7 +72,12 @@ async function performGeminiAsk(payload, savedKey, externalSignal) {
     const answer = result.candidates?.[0]?.content?.parts?.map((part) => part.text).join('');
     if (!answer) return providerFailure(result.error?.message || 'Não recebi uma resposta do Gemini.');
     rememberTurn(conversationId, conversation, prompt, answer);
-    return providerSuccess(answer);
+    const metadata = result.usageMetadata || {};
+    return providerSuccess(answer, {
+      inputTokens: metadata.promptTokenCount,
+      outputTokens: metadata.candidatesTokenCount,
+      totalTokens: metadata.totalTokenCount,
+    });
   } catch (error) {
     if (externallyCancelled) throw error;
     return providerFailure(error.name === 'AbortError'
