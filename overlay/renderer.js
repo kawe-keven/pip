@@ -749,7 +749,7 @@ chatForm.addEventListener('submit', async (event) => {
     chatSend.textContent = '↑';
     chatSend.dataset.cancelling = 'false';
     chatInput.value = '';
-    chatInput.focus();
+    if (chatOpen) chatInput.focus();
   }
 });
 document.addEventListener('keydown', (event) => {
