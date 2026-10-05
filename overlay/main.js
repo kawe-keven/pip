@@ -7,6 +7,7 @@ const { ask, getProviderConfiguration } = require('./providers');
 const { loopbackUrl } = require('./providers/shared');
 const { readDroppedFiles, FILE_DIALOG_EXTENSIONS, MAX_FILES } = require('./file-attachments');
 const settingsStore = require('./settings-store');
+const conversationStore = require('./conversation-store');
 const { startAlfredNotifications } = require('./integrations/alfred-notifications');
 const { startWindowsMediaSession } = require('./integrations/windows-media-session');
 const { checkAlfredHealth } = require('./integrations/alfred-health');
@@ -447,16 +448,34 @@ app.whenReady().then(() => {
     if (!isOverlaySender(event)) throw new Error('Origem da solicitação inválida.');
     pendingAttachments = [];
   });
-  ipcMain.handle('chat-ask', async (event, question, requestId) => {
+  ipcMain.handle('chat-ask', async (event, question, requestId, conversationId) => {
     if (!isOverlaySender(event)) throw new Error('Origem da solicitação inválida.');
     if (typeof question !== 'string' || question.length > 2000) throw new Error('Use até 2.000 caracteres para a pergunta.');
     if (typeof requestId !== 'string' || !/^pip-overlay-chat-\d+-\d+$/.test(requestId) || requestId.length > 80) {
       throw new Error('Identificador da pergunta inválido.');
     }
-    const result = await dispatchBridgeRequest('/ask', { question, requestId, attachments: pendingAttachments }, { notify: false, localChat: true });
+    if (typeof conversationId !== 'string' || !/^[\w-]{1,80}$/.test(conversationId)) {
+      throw new Error('Identificador da conversa inválido.');
+    }
+    const savedConversation = await conversationStore.getConversation(conversationId);
+    const conversationHistory = (savedConversation?.messages || []).slice(-25, -1).map((message) => ({
+      role: message.role === 'user' ? 'user' : 'model',
+      text: message.text,
+    }));
+    const result = await dispatchBridgeRequest('/ask', {
+      question, requestId, conversationId, conversationHistory, attachments: pendingAttachments,
+    }, { notify: false, localChat: true });
     if (result.status === 499) return { ok: false, cancelled: true, text: 'Parei por aqui.' };
     if (result.status < 200 || result.status >= 300) throw new Error(result.body.error || 'Não consegui enviar a pergunta.');
     return result.body;
+  });
+  ipcMain.handle('conversations:list', async (event) => {
+    if (!isOverlaySender(event)) throw new Error('Origem da solicitação inválida.');
+    return conversationStore.listConversations();
+  });
+  ipcMain.handle('conversations:save', async (event, conversation) => {
+    if (!isOverlaySender(event)) throw new Error('Origem da solicitação inválida.');
+    await conversationStore.saveConversation(conversation);
   });
   ipcMain.handle('settings:get', async (event) => {
     if (!isSettingsSender(event)) throw new Error('Origem da solicitação inválida.');

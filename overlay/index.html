@@ -76,7 +76,16 @@
   #chat-send{display:grid;place-items:center;flex:none;width:29px;height:29px;border:0;border-radius:50%;background:var(--accent);color:var(--accent-ink);font:600 17px/1 "Segoe UI",sans-serif;cursor:pointer}
   #chat-send[data-cancelling="false"]{width:auto;padding:0 11px;border-radius:16px;font:600 12px "Segoe UI",sans-serif}
   #chat-send[data-cancelling="true"]{width:auto;padding:0 11px;border-radius:16px;background:#d4d4da;font:600 12px "Segoe UI",sans-serif}
-  #chat-send:disabled,#chat-close:disabled,#chat-attach:disabled{opacity:.55;cursor:default}
+  #chat-send:disabled,#chat-close:disabled,#chat-new:disabled,#chat-history:disabled,#chat-attach:disabled{opacity:.55;cursor:default}
+  #chat-history-panel{position:absolute;z-index:5;inset:9px 13px 10px 84px;display:flex;flex-direction:column;min-height:0;padding:12px;border:1px solid #3a3b43;border-radius:12px;background:#1b1c22}
+  #chat-history-panel[hidden]{display:none}
+  #chat-history-title{margin:0 0 8px;color:var(--text);font-size:13px;font-weight:600}
+  #chat-history-list{display:flex;flex:1;min-height:0;flex-direction:column;gap:5px;overflow:auto}
+  .history-empty{margin:auto;color:var(--muted);font-size:12px;text-align:center}
+  .history-item{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:9px 10px;border:0;border-radius:8px;background:#ffffff08;color:var(--text);text-align:left;cursor:pointer}
+  .history-item:hover{background:#ffffff15}
+  .history-item-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+  .history-item-date{flex:none;color:var(--muted);font-size:10px}
 </style>
 <div id="compact-island" aria-label="Dynamic Island do Pip">
   <canvas id="c" width="640" height="250"></canvas>
@@ -95,7 +104,9 @@
     <div id="chat-nav">
       <button id="chat-close" type="button" aria-label="Recolher Pip" title="Recolher">⌂</button>
       <span id="chat-current" aria-label="Conversa atual"><span class="chat-bubble-icon"></span></span>
-      <button id="chat-attach" type="button" aria-label="Anexar arquivos" title="Anexar arquivos">+</button>
+      <button id="chat-new" type="button" aria-label="Nova conversa" title="Nova conversa">＋</button>
+      <button id="chat-history" type="button" aria-label="Conversas salvas" title="Conversas salvas">◷</button>
+      <button id="chat-attach" type="button" aria-label="Anexar arquivos" title="Anexar arquivos">↥</button>
     </div>
     <div id="chat-actions"><button id="chat-settings" type="button" aria-label="Abrir configurações" title="Configurações">⚙</button></div>
   </div>
@@ -107,6 +118,10 @@
       <textarea id="chat-input" rows="1" maxlength="2000" aria-label="Sua pergunta" placeholder="Escreva sua pergunta…"></textarea>
       <button id="chat-send" type="submit" aria-label="Enviar pergunta" title="Enviar pergunta">↑</button>
     </form>
+    <div id="chat-history-panel" hidden aria-label="Conversas salvas">
+      <h2 id="chat-history-title">Conversas recentes</h2>
+      <div id="chat-history-list"></div>
+    </div>
   </div>
 </section>
 <script>
@@ -123,6 +138,11 @@ const chatTranscript = document.getElementById('chat-transcript');
 const chatForm = document.getElementById('chat-form'), chatInput = document.getElementById('chat-input');
 const chatSend = document.getElementById('chat-send');
 const chatAttach = document.getElementById('chat-attach');
+const chatNew = document.getElementById('chat-new');
+const chatHistory = document.getElementById('chat-history');
+const chatHistoryPanel = document.getElementById('chat-history-panel');
+const chatHistoryList = document.getElementById('chat-history-list');
+const chatCurrent = document.getElementById('chat-current');
 const attachmentList = document.getElementById('attachments');
 let CX = 48, CY = 40;
 let mood = 'idle', moodT = 0, t = 0, look = { x: 0, y: 0 }, gaze = { x: 0, y: 0 };
@@ -132,13 +152,99 @@ let pointerOver = false, characterHovered = false, hoverStartedAt = 0, hoverAmou
 let entranceAmount = 1, greetingTime = 0, clickAmount = 0;
 let attachedFiles = [], previousFrameAt = 0, animationFramePending = false;
 let activeChatRequestId = null, chatRequestSequence = 0;
+let currentConversation = createConversation();
 let notificationTimer;
 const MAX_TRANSCRIPT_MESSAGES = 24;
 const COLORS = { idle:'#d4d7d4', happy:'#d7e4d8', worried:'#e4d9c9', sad:'#d1d8df', sleepy:'#d2d2d0', thinking:'#dce2d5', annoyed:'#dfd3d0', dizzy:'#e3dfc9' };
 const STICKY = ['worried', 'sleepy'];
 
-function setMood(m) { mood = m; moodT = 0; }
+async function startNewConversation() {
+  if (activeChatRequestId) return;
+  await saveCurrentConversation();
+  currentConversation = createConversation();
+  chatCurrent.title = 'Conversa nova';
+  chatTranscript.replaceChildren();
+  chatMessage.textContent = '';
+  chatHistoryPanel.hidden = true;
+  attachedFiles = [];
+  renderAttachments();
+  try { await window.api.clearAttachments(); } catch {}
+  chatInput.focus();
+}
 function classifyMusicStyle(media) {
+function createConversation() {
+  const id = globalThis.crypto?.randomUUID?.() || `chat-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  return { id, title: 'Conversa nova', messages: [] };
+}
+
+function updateConversationTitle() {
+  const firstQuestion = currentConversation.messages.find((message) => message.role === 'user')?.text || '';
+  currentConversation.title = firstQuestion.replace(/\s+/g, ' ').trim().slice(0, 64) || 'Conversa com o Pip';
+  chatCurrent.title = currentConversation.title;
+}
+
+async function saveCurrentConversation() {
+  if (!currentConversation.messages.length) return;
+  updateConversationTitle();
+  try {
+    await window.api.saveConversation(currentConversation);
+  } catch (error) {
+    chatMessage.textContent = error.message || 'Não consegui salvar esta conversa.';
+  }
+}
+
+function showConversation(conversation) {
+  currentConversation = {
+    id: conversation.id,
+    title: conversation.title || 'Conversa com o Pip',
+    messages: Array.isArray(conversation.messages) ? conversation.messages : [],
+  };
+  chatCurrent.title = currentConversation.title;
+  chatTranscript.replaceChildren();
+  for (const message of currentConversation.messages) appendTranscriptMessage(message.role, message.text);
+  chatMessage.textContent = 'Conversa aberta.';
+  chatHistoryPanel.hidden = true;
+}
+
+async function toggleConversationHistory() {
+  if (!chatHistoryPanel.hidden) {
+    chatHistoryPanel.hidden = true;
+    return;
+  }
+  chatHistoryList.replaceChildren();
+  chatHistoryPanel.hidden = false;
+  chatHistoryList.append(Object.assign(document.createElement('p'), {
+    className: 'history-empty', textContent: 'Carregando conversas…',
+  }));
+  try {
+    const conversations = await window.api.listConversations();
+    chatHistoryList.replaceChildren();
+    if (!conversations.length) {
+      chatHistoryList.append(Object.assign(document.createElement('p'), {
+        className: 'history-empty', textContent: 'As conversas enviadas serão salvas aqui.',
+      }));
+      return;
+    }
+    for (const conversation of conversations) {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'history-item';
+      const title = document.createElement('span');
+      title.className = 'history-item-title';
+      title.textContent = conversation.title || 'Conversa com o Pip';
+      const date = document.createElement('time');
+      date.className = 'history-item-date';
+      date.textContent = new Date(conversation.updatedAt).toLocaleDateString('pt-BR');
+      item.append(title, date);
+      item.addEventListener('click', () => showConversation(conversation));
+      chatHistoryList.append(item);
+    }
+  } catch (error) {
+    chatHistoryList.replaceChildren(Object.assign(document.createElement('p'), {
+      className: 'history-empty', textContent: error.message || 'Não consegui carregar as conversas.',
+    }));
+  }
+}
   const genres = Array.isArray(media?.genres) ? media.genres : typeof media?.genre === 'string' ? [media.genre] : [];
   const genreText = genres.join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   if (/\b(nu[ -]?metal|metalcore|deathcore|hardcore|thrash|heavy metal|hard rock|punk rock|industrial rock|grunge|metal)\b/.test(genreText)) return 'heavy';
@@ -372,11 +478,12 @@ window.api.onEvent((e) => {
       if (chatOpen) appendTranscriptMessage('pip', e.text);
       else say(e.text);
       break;
-    case 'chat-opened': chatInput.focus(); break;
+    case 'chat-opened': resizeCanvas(); chatInput.focus(); break;
     case 'chat-dismissed':
       chatOpen = false;
       movePetToIsland();
       document.body.classList.remove('chat-open');
+      resizeCanvas();
       break;
     case 'media': updateMedia(e.media); break;
   }
@@ -388,7 +495,6 @@ islandCollapse.addEventListener('click', (event) => {
 });
 islandPetButton.addEventListener('click', (event) => {
   event.stopPropagation();
-  clickAmount = 1;
   openChat();
 });
 
@@ -421,6 +527,8 @@ document.addEventListener('click', (event) => {
 });
 bub.addEventListener('click', () => { bub.style.display = 'none'; });
 document.getElementById('chat-close').addEventListener('click', closeChat);
+chatNew.addEventListener('click', startNewConversation);
+chatHistory.addEventListener('click', toggleConversationHistory);
 document.getElementById('chat-settings').addEventListener('click', () => {
   cancelActiveChatRequest();
   window.api.openSettings();
@@ -434,31 +542,45 @@ chatForm.addEventListener('submit', async (event) => {
   const requestId = `pip-overlay-chat-${Date.now()}-${++chatRequestSequence}`;
   activeChatRequestId = requestId;
   chatInput.disabled = true;
+  chatNew.disabled = true;
+  chatHistory.disabled = true;
+  chatAttach.disabled = true;
   chatSend.disabled = false;
   chatSend.textContent = 'Cancelar';
   chatSend.dataset.cancelling = 'false';
-  appendTranscriptMessage('user', question);
+  currentConversation.messages.push({ role: 'user', text: question });
+  await saveCurrentConversation();
+  chatInput.value = '';
   chatMessage.textContent = 'Pensando…';
   setMood('thinking');
   try {
-    const result = await window.api.ask(question, requestId);
+    const result = await window.api.ask(question, requestId, currentConversation.id);
     if (result.cancelled) {
+      currentConversation.messages.push({ role: 'pip', text: result.text || 'Parei por aqui.' });
       appendTranscriptMessage('pip', result.text || 'Parei por aqui.');
+      await saveCurrentConversation();
       setMood('idle');
       chatMessage.textContent = result.text || 'Parei por aqui.';
       return;
     }
+    currentConversation.messages.push({ role: 'pip', text: result.text || '' });
     appendTranscriptMessage('pip', result.text);
-    setMood(result.ok === false ? 'sad' : 'happy');
+    await saveCurrentConversation();
+    setMood(result.ok === false ? 'sad' : 'joy');
     chatMessage.textContent = result.ok === false ? result.text : 'Sua vez.';
   } catch (error) {
     setMood('sad');
     const message = error.message || 'Não consegui enviar a pergunta.';
+    currentConversation.messages.push({ role: 'pip', text: message });
     appendTranscriptMessage('pip', message);
+    await saveCurrentConversation();
     chatMessage.textContent = 'A pergunta não foi enviada.';
   } finally {
     activeChatRequestId = null;
     chatInput.disabled = false;
+    chatNew.disabled = false;
+    chatHistory.disabled = false;
+    chatAttach.disabled = false;
     chatSend.disabled = false;
     chatSend.textContent = '↑';
     chatSend.dataset.cancelling = 'false';
@@ -621,5 +743,7 @@ document.addEventListener('visibilitychange', () => {
     requestDraw();
   }
 });
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
 requestDraw();
 </script>

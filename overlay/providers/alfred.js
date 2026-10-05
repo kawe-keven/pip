@@ -7,6 +7,13 @@ async function askAlfred(payload, settings = {}, externalSignal) {
   base.pathname = '/chat';
   base.search = '';
   base.hash = '';
+  const configuredSession = settings.alfredSession || process.env.PIP_ALFRED_SESSION || 'pip-editor';
+  const conversationId = typeof payload.conversationId === 'string' && /^[\w-]{1,80}$/.test(payload.conversationId)
+    ? payload.conversationId
+    : '';
+  const sessionId = conversationId
+    ? `${configuredSession.slice(0, 104)}-${conversationId.slice(-15)}`
+    : configuredSession;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120_000);
@@ -23,7 +30,7 @@ async function askAlfred(payload, settings = {}, externalSignal) {
       headers: { 'content-type': 'application/json' },
       signal: controller.signal,
       body: JSON.stringify({
-        session_id: settings.alfredSession || process.env.PIP_ALFRED_SESSION || 'pip-editor',
+        session_id: sessionId,
         message: buildPrompt(payload, { maxChars: ALFRED_MAX_MESSAGE_CHARS }),
         audio_response: false,
       }),

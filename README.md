@@ -35,7 +35,9 @@ e recarregue o VS Code. O overlay do Pip precisa estar aberto para responder.
 - Mostra faixa e artista da sessão de mídia ativa e anima o mascote de acordo com
 	o estilo musical identificado.
 - Abre uma conversa com o Pip; `Enter` envia, `Shift+Enter` cria uma nova linha e
-	`Esc` fecha o chat. Uma solicitação em andamento pode ser cancelada.
+  `Esc` fecha o chat. Uma solicitação em andamento pode ser cancelada. O botão
+  **Nova conversa** inicia um chat separado; as últimas 30 conversas ficam salvas
+  no perfil local do Pip e podem ser reabertas pelo histórico.
 - Recebe até três arquivos de texto ou código por arraste ou pelo botão de anexo.
 	Cada arquivo pode ter até 256 KB e o total, até 512 KB.
 - Oferece controles na bandeja do Windows para abrir o Pip, pausar aparições,
