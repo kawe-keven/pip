@@ -157,13 +157,8 @@ function showConversation(conversation) {
   chatHistoryPanel.hidden = true;
 }
 
-async function toggleConversationHistory() {
-  if (!chatHistoryPanel.hidden) {
-    chatHistoryPanel.hidden = true;
-    return;
-  }
+async function renderConversationHistory() {
   chatHistoryList.replaceChildren();
-  chatHistoryPanel.hidden = false;
   chatHistoryList.append(Object.assign(document.createElement('p'), {
     className: 'history-empty', textContent: 'Carregando conversas…',
   }));
@@ -177,6 +172,8 @@ async function toggleConversationHistory() {
       return;
     }
     for (const conversation of conversations) {
+      const row = document.createElement('div');
+      row.className = 'history-row';
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'history-item';
@@ -188,11 +185,48 @@ async function toggleConversationHistory() {
       date.textContent = new Date(conversation.updatedAt).toLocaleDateString('pt-BR');
       item.append(title, date);
       item.addEventListener('click', () => showConversation(conversation));
-      chatHistoryList.append(item);
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'history-delete';
+      remove.textContent = '×';
+      remove.title = 'Apagar conversa';
+      remove.setAttribute('aria-label', `Apagar conversa ${conversation.title || 'Conversa com o Pip'}`);
+      remove.addEventListener('click', () => deleteConversation(conversation));
+      row.append(item, remove);
+      chatHistoryList.append(row);
     }
   } catch (error) {
     chatHistoryList.replaceChildren(Object.assign(document.createElement('p'), {
       className: 'history-empty', textContent: error.message || 'Não consegui carregar as conversas.',
+    }));
+  }
+}
+
+async function toggleConversationHistory() {
+  if (!chatHistoryPanel.hidden) {
+    chatHistoryPanel.hidden = true;
+    return;
+  }
+  chatHistoryPanel.hidden = false;
+  await renderConversationHistory();
+}
+
+async function deleteConversation(conversation) {
+  const title = conversation.title || 'Conversa com o Pip';
+  if (!window.confirm(`Apagar a conversa "${title}" permanentemente?`)) return;
+  try {
+    const removed = await window.api.deleteConversation(conversation.id);
+    if (!removed) throw new Error('Esta conversa já foi apagada.');
+    if (currentConversation.id === conversation.id) {
+      currentConversation = createConversation();
+      chatCurrent.title = 'Conversa nova';
+      chatTranscript.replaceChildren();
+      chatMessage.textContent = 'Conversa apagada.';
+    }
+    await renderConversationHistory();
+  } catch (error) {
+    chatHistoryList.replaceChildren(Object.assign(document.createElement('p'), {
+      className: 'history-empty', textContent: error.message || 'Não consegui apagar esta conversa.',
     }));
   }
 }

@@ -80,7 +80,12 @@
   #chat-history-title{margin:0 0 8px;color:var(--text);font-size:13px;font-weight:600}
   #chat-history-list{display:flex;flex:1;min-height:0;flex-direction:column;gap:5px;overflow:auto}
   .history-empty{margin:auto;color:var(--muted);font-size:12px;text-align:center}
+  .history-row{display:flex;align-items:center;gap:5px;min-width:0}
   .history-item{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:9px 10px;border:0;border-radius:8px;background:#ffffff08;color:var(--text);text-align:left;cursor:pointer}
+  .history-row .history-item{flex:1;min-width:0}
   .history-item:hover{background:#ffffff15}
   .history-item-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
   .history-item-date{flex:none;color:var(--muted);font-size:10px}
+  .history-delete{flex:none;width:30px;height:30px;border:0;border-radius:7px;background:transparent;color:var(--muted);font:16px/1 "Segoe UI",sans-serif;cursor:pointer}
+  .history-delete:hover{background:#e5484d22;color:#ff8589}
+  .history-delete:focus-visible{outline:2px solid #ff8589;outline-offset:1px}

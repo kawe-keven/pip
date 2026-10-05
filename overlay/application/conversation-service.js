@@ -11,6 +11,10 @@ function createConversationService({ repository }) {
     return repository.saveConversation(conversation);
   }
 
+  function remove(conversationId) {
+    return repository.deleteConversation(conversationId);
+  }
+
   async function getProviderHistory(conversationId) {
     const conversation = await findById(conversationId);
     return (conversation?.messages || []).slice(-25, -1).map((message) => ({
@@ -19,7 +23,7 @@ function createConversationService({ repository }) {
     }));
   }
 
-  return { listRecent, findById, save, getProviderHistory };
+  return { listRecent, findById, save, remove, getProviderHistory };
 }
 
 module.exports = { createConversationService };

@@ -56,6 +56,14 @@ function registerChatIpc({ ipcMain, dialog, getWindow, isOverlaySender, fileAtta
     assertOverlaySender(event, isOverlaySender);
     await conversationService.save(conversation);
   });
+
+  ipcMain.handle('conversations:delete', (event, conversationId) => {
+    assertOverlaySender(event, isOverlaySender);
+    if (typeof conversationId !== 'string' || !/^[\w-]{1,80}$/.test(conversationId)) {
+      throw new Error('Identificador da conversa inválido.');
+    }
+    return conversationService.remove(conversationId);
+  });
 }
 
 function assertOverlaySender(event, isOverlaySender) {

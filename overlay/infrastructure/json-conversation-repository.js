@@ -54,16 +54,33 @@ async function saveConversation(input) {
   const conversation = { id: input.id, title, updatedAt: new Date().toISOString(), messages };
 
   pendingWrite = pendingWrite.catch(() => {}).then(async () => {
-    const file = conversationsPath();
-    await fs.mkdir(path.dirname(file), { recursive: true });
     const conversations = await readConversations();
     const next = [conversation, ...conversations.filter((item) => item.id !== conversation.id)]
       .slice(0, MAX_CONVERSATIONS);
-    const temporaryFile = `${file}.tmp`;
-    await fs.writeFile(temporaryFile, `${JSON.stringify(next, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
-    await fs.rename(temporaryFile, file);
+    await writeConversations(next);
   });
   await pendingWrite;
 }
 
-module.exports = { listConversations, getConversation, saveConversation };
+async function deleteConversation(id) {
+  if (typeof id !== 'string' || !/^[\w-]{1,80}$/.test(id)) throw new Error('Identificador da conversa inválido.');
+  let removed = false;
+  pendingWrite = pendingWrite.catch(() => {}).then(async () => {
+    const conversations = await readConversations();
+    const remaining = conversations.filter((conversation) => conversation.id !== id);
+    removed = remaining.length !== conversations.length;
+    if (removed) await writeConversations(remaining);
+  });
+  await pendingWrite;
+  return removed;
+}
+
+async function writeConversations(conversations) {
+  const file = conversationsPath();
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  const temporaryFile = `${file}.tmp`;
+  await fs.writeFile(temporaryFile, `${JSON.stringify(conversations, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+  await fs.rename(temporaryFile, file);
+}
+
+module.exports = { listConversations, getConversation, saveConversation, deleteConversation };

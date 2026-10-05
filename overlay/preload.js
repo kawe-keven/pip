@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('api', {
   ask: (question, requestId, conversationId) => ipcRenderer.invoke('chat-ask', question, requestId, conversationId),
   listConversations: () => ipcRenderer.invoke('conversations:list'),
   saveConversation: (conversation) => ipcRenderer.invoke('conversations:save', conversation),
+  deleteConversation: (conversationId) => ipcRenderer.invoke('conversations:delete', conversationId),
   attachFiles: (files) => {
     const paths = Array.from(files).map((file) => webUtils.getPathForFile(file));
     return ipcRenderer.invoke('files:attach', paths);
