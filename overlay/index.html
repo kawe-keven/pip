@@ -814,16 +814,18 @@ function draw(timestamp) {
     const wavePhase = t * 7.5;
     const wave = Math.sin(wavePhase) * greetingAmount;
     const lift = Math.cos(wavePhase) * greetingAmount;
-    const arm = x.createLinearGradient(cx + 29, cy + 12, cx + 44, cy - 8);
-    arm.addColorStop(0, '#aeb8af'); arm.addColorStop(0.55, '#e5ebe5'); arm.addColorStop(1, '#f7faf7');
+    const arm = x.createLinearGradient(cx, cy - 12, cx, cy + 12);
+    arm.addColorStop(0, '#f7faf7'); arm.addColorStop(0.5, '#e5ebe5'); arm.addColorStop(1, '#aeb8af');
     x.save(); x.fillStyle = arm; x.strokeStyle = '#7e8980'; x.lineWidth = 0.8;
-    const armParts = [
-      [cx + 30, cy + 10, 7, 4.5, -0.36 + wave * 0.12],
-      [cx + 36, cy + 5 + lift * 2, 6.4, 4.8, -0.62 + wave * 0.24],
-      [cx + 41, cy - 1 + lift * 5, 5.6, 4.5, -0.55 + wave * 0.72],
+    const arms = [
+      [cx - 47, cy + 7 + lift * 2.5, 6.2, 5.2, -0.18 + wave * 0.12],
+      [cx + 47, cy - 4 + lift * 4, 6.2, 5.2, 0.18 - wave * 0.72],
     ];
-    for (const [armX, armY, radiusX, radiusY, angle] of armParts) {
+    for (const [armX, armY, radiusX, radiusY, angle] of arms) {
       x.beginPath(); x.ellipse(armX, armY, radiusX, radiusY, angle, 0, Math.PI * 2); x.fill(); x.stroke();
+      x.fillStyle = '#ffffff70';
+      x.beginPath(); x.ellipse(armX - 1, armY - 1.5, radiusX * 0.42, radiusY * 0.28, angle, 0, Math.PI * 2); x.fill();
+      x.fillStyle = arm;
     }
     x.restore();
   }
