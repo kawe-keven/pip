@@ -802,17 +802,17 @@ function draw(timestamp) {
   const celebration = Math.min(1, pose.emotion.joy + pose.emotion.excited);
   const mediaIsland = !chatOpen && document.body.classList.contains('island-expanded')
     && document.body.classList.contains('media-available');
-  const motionScale = chatOpen ? 0.32 : mediaIsland ? 0.12 : 1;
+  const motionScale = chatOpen ? 0.32 : mediaIsland ? 0.6 : 1;
   const bobWave = Math.sin(bobPhase) * (1 - celebration)
     + (1 - Math.cos(bobPhase)) * 0.5 * celebration;
-  const musicBob = musicMotion * musicBeat * (musicStyle === 'heavy' ? 4.5 : 2.5) * motionScale;
+  const musicBob = musicMotion * musicBeat * (musicStyle === 'heavy' ? 8 : 5) * motionScale;
   const oy = (1 - entranceAmount) * -38 + bobWave * pose.bobAmplitude * motionScale + musicBob;
   const ox = Math.sin(bobPhase) * (pose.emotion.worried * 1.5 + pose.emotion.angry * 0.7) * motionScale;
   const confusionTilt = Math.sin(t * 2.2) * 0.11 * pose.emotion.confused;
-  const musicTilt = (pose.bodyTilt + confusionTilt + musicBeat * (musicStyle === 'heavy' ? 0.02 : 0.045) * musicMotion) * motionScale;
+  const musicTilt = (pose.bodyTilt + confusionTilt + musicBeat * (musicStyle === 'heavy' ? 0.12 : 0.085) * musicMotion) * motionScale;
   const musicSquash = musicStyle === 'heavy'
     ? Math.max(0, musicBeat) * 0.09 * musicMotion * motionScale
-    : -Math.cos(musicPhase * musicRate) * 0.018 * musicMotion * motionScale;
+    : -Math.cos(musicPhase * musicRate) * 0.045 * musicMotion * motionScale;
   const excitementSquash = Math.sin(bobPhase * 2) * 0.018 * pose.emotion.excited * motionScale;
   const squash = Math.max(-0.15, Math.min(0.25, pose.squash * motionScale + clickAmount * 0.12 * motionScale + dropPulse * 0.06 + musicSquash + excitementSquash));
   const receiveLift = Math.sin((1 - dropPulse) * Math.PI) * dropPulse * 4;
@@ -881,7 +881,7 @@ function draw(timestamp) {
   const eyeOpen = pose.eyeOpen * (1 - blinkPulse);
   const closed = eyeOpen < 0.12;
   const idleEyeBob = Math.sin(bobPhase) * 0.8;
-  const musicEyeBob = musicBeat * (musicStyle === 'heavy' ? 2.8 : 1.5) * motionScale;
+  const musicEyeBob = musicBeat * (musicStyle === 'heavy' ? 4 : 2.6) * motionScale;
   const eyeBob = idleEyeBob * (1 - musicMotion) + musicEyeBob * musicMotion;
   for (const s of [-1, 1]) {
     const confusionGlance = Math.sin(t * 1.8) * 0.32 * pose.emotion.confused;

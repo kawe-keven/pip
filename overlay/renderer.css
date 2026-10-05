@@ -1,12 +1,12 @@
 :root{--panel:#17181d;--panel-raised:#24252a;--border:#2b2c32;--text:#f0f0f2;--muted:#a7a8af;--accent:#f2f2f5;--accent-ink:#17181d}
-  html,body{margin:0;background:transparent;overflow:hidden;font:14px/1.45 "Segoe UI",sans-serif}
+  html,body{margin:0;background:transparent;overflow:hidden;font:14px/1.45 "Segoe UI","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji",sans-serif}
   canvas{position:absolute;left:0;top:0;width:640px;height:250px;z-index:2;pointer-events:none}
   #compact-island{position:absolute;z-index:1;left:50%;top:0;width:78px;height:6px;box-sizing:border-box;transform:translateX(-50%);overflow:hidden;
     border:1px solid #121317;border-top:0;border-radius:0 0 5px 5px;background:#030405;box-shadow:0 3px 12px #0008;cursor:pointer;
     transition:width 220ms ease,height 220ms ease,border-radius 220ms ease,padding 220ms ease}
   body.island-expanded #compact-island{width:128px;height:66px;min-height:66px;padding:0;border-radius:0 0 14px 14px}
   body.island-expanded.has-notification #compact-island{width:420px;height:96px;min-height:96px;padding:0;border-radius:0 0 14px 14px}
-  body.media-available.island-expanded:not(.has-notification) #compact-island{width:310px;height:66px;min-height:66px;padding:0;border-radius:0 0 14px 14px}
+  body.media-available.island-expanded:not(.has-notification) #compact-island{width:310px;height:82px;min-height:82px;padding:0;border-radius:0 0 14px 14px}
   body.file-dragging #compact-island{width:310px;height:66px;min-height:66px;padding:0;border-radius:0 0 14px 14px}
   body.media-playing.island-expanded #compact-island{box-shadow:0 10px 28px #0008}
   #island-collapse{position:absolute;z-index:4;top:8px;right:9px;display:none;place-items:center;width:24px;height:24px;padding:0;
@@ -14,13 +14,13 @@
   body.island-expanded #island-collapse{display:grid}
   #island-collapse:hover{background:#ffffff20;color:#fff}
   #island-collapse:focus-visible{outline:2px solid #f0f0f2;outline-offset:2px}
-  #island-media{position:relative;z-index:1;display:none;align-items:center;gap:12px;box-sizing:border-box;min-width:0;height:100%;padding-left:100px;color:var(--text)}
+  #island-media{position:relative;z-index:1;display:none;align-items:center;gap:12px;box-sizing:border-box;min-width:0;height:100%;padding:8px 0 8px 100px;color:var(--text)}
   body.media-available #island-media{display:flex}
   body.file-dragging #island-media{opacity:0}
   #island-pet-button{position:absolute;z-index:3;top:0;left:0;display:none;width:80px;height:66px;padding:0;border:0;background:transparent;cursor:pointer}
   body.island-expanded.media-available #island-pet-button{display:block}
-  #island-track{display:flex;flex:1;min-width:0;flex-direction:column;line-height:1.3}
-  #island-title,#island-artist{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #island-track{display:flex;flex:1;min-width:0;flex-direction:column;line-height:1.3;overflow-wrap:anywhere}
+  #island-title,#island-artist{white-space:normal;overflow-wrap:anywhere;unicode-bidi:plaintext;font-family:"Segoe UI","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji",sans-serif}
   #island-title{font-size:12px;font-weight:600;color:#f3f3f4}
   #island-artist{font-size:11px;color:#a7a8af}
   #island-status{flex:none;margin-right:30px;color:#a7a8af;font-size:10px}
