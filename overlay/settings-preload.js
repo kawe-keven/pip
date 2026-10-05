@@ -5,4 +5,5 @@ contextBridge.exposeInMainWorld('settingsApi', {
   load: () => ipcRenderer.invoke('settings:get'),
   save: (settings) => ipcRenderer.invoke('settings:save', settings),
   testAlfredConnection: (url) => ipcRenderer.invoke('alfred:test-connection', url),
+  getUsage: () => ipcRenderer.invoke('usage:get'),
 });

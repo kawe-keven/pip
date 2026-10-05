@@ -49,7 +49,7 @@ goto launch_pip
   if not exist "%ELECTRON_DIR%\resources\default_app.asar" goto install_failed
 
 :launch_pip
-start "" /D "%CD%" "%ELECTRON_EXE%" --no-sandbox "%CD%"
+start "" /D "%CD%" "%ELECTRON_EXE%" "%CD%"
 if errorlevel 1 (
   echo Nao foi possivel iniciar o Pip.
   pause

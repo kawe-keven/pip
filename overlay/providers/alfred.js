@@ -38,7 +38,12 @@ async function askAlfred(payload, settings = {}, externalSignal) {
     const result = await response.json();
     if (!response.ok) return providerFailure(result.detail || `Alfred respondeu com erro ${response.status}.`);
     if (!result.response) return providerFailure('Alfred não retornou uma resposta.');
-    return providerSuccess(result.response);
+    const usage = result.usage || result.usage_metadata || result.token_usage;
+    return providerSuccess(result.response, usage ? {
+      inputTokens: usage.inputTokens ?? usage.prompt_tokens ?? usage.prompt_token_count,
+      outputTokens: usage.outputTokens ?? usage.completion_tokens ?? usage.candidates_token_count,
+      totalTokens: usage.totalTokens ?? usage.total_tokens ?? usage.total_token_count,
+    } : null);
   } catch (error) {
     if (externallyCancelled) throw error;
     return providerFailure(error.name === 'AbortError'

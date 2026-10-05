@@ -177,6 +177,7 @@ function activate(ctx) {
       return post('/ask', {
         question,
         requestId,
+        source: 'VS Code',
         code: code.slice(0, 12_000),
         lang: editor.document.languageId,
         file,
@@ -227,7 +228,7 @@ function activate(ctx) {
       response.progress('O Pip está preparando o contexto…');
       const context = await collectChatContext(request, vscode);
       if (token.isCancellationRequested) return;
-      const result = await post('/ask', { question, requestId: randomUUID(), ...context }, controller.signal);
+      const result = await post('/ask', { question, requestId: randomUUID(), source: 'VS Code', ...context }, controller.signal);
       if (token.isCancellationRequested) return;
       if (typeof result?.text !== 'string' || !result.text.trim()) {
         response.markdown('Não consegui receber uma resposta do Pip. Confira se o mascote está aberto e tente novamente.');

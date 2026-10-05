@@ -1,5 +1,40 @@
 # Arquitetura do Pip e integração com o Alfred
 
+## Camadas e dependências
+
+O `main.js` é o ponto de composição: conecta os casos de uso às implementações
+do Electron, aos repositórios locais e aos serviços externos. A dependência
+aponta para dentro do aplicativo:
+
+```text
+renderer e extensão
+        │ IPC / HTTP / Named Pipe
+        ▼
+adapters ────────► application ────────► contratos de repositório/provedor
+   │                                      ▲
+   ├── Electron IPC                      │
+   ├── HTTP e Named Pipe                  │
+   └── provedores Gemini / Alfred ─────────┘
+        ▲
+        │
+infrastructure (JSON, DPAPI e APIs do Electron)
+```
+
+- `application/` contém casos de uso com dependências recebidas por parâmetros.
+  Não importa Electron, APIs de janela, filesystem ou transporte de rede.
+- `adapters/` traduz IPC, HTTP e Named Pipe para chamadas dos casos de uso.
+- `infrastructure/` implementa os repositórios atuais com arquivos JSON e o
+  armazenamento seguro do Electron. A aplicação depende dos métodos do
+  repositório, então outra implementação de persistência pode substituí-los.
+- `providers/` e `integrations/` isolam APIs externas. O serviço de provedores
+  recebe os adaptadores e as configurações ao ser criado.
+- `renderer.js` e `settings-renderer.js` mantêm o comportamento das telas fora
+  dos documentos HTML; os estilos também ficam em arquivos próprios.
+
+Os roteadores e serviços de `application/` são construídos com dependências
+explícitas. Isso permite exercitar as regras com repositórios e provedores
+substitutos, sem iniciar janelas, sockets ou serviços reais.
+
 O Pip permanece responsável pela experiência de desktop no Windows e pelas
 integrações com editores. O Alfred permanece responsável por conversa, memória
 e agentes. A conexão entre eles passa por contratos locais explícitos.
