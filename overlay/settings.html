@@ -13,7 +13,11 @@
     <p>Escolha como o Pip responde às suas perguntas.</p>
   </header>
 
-  <div class="row g-3">
+  <nav class="settings-tabs" role="tablist" aria-label="Seções de configurações">
+    <button id="tab-general" class="settings-tab active" type="button" role="tab" aria-selected="true" aria-controls="general-panel">Geral</button>
+    <button id="tab-appearance" class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="appearance-panel">Personalização visual</button>
+  </nav>
+  <div id="general-panel" role="tabpanel" aria-labelledby="tab-general" class="row g-3">
     <div class="col-12">
       <label class="form-label" for="provider">Provedor de IA</label>
       <select id="provider" class="form-select">
@@ -60,21 +64,46 @@
       <div id="status" role="status" aria-live="polite"></div>
       <button id="save" class="btn" type="button">Salvar configurações</button>
     </div>
+    <section id="usage-section" class="section col-12" aria-labelledby="usage-title">
+      <h2 id="usage-title">Uso de IA e editores</h2>
+      <p class="hint">Histórico local dos últimos 180 dias. O Pip não lê dados de uso de outros aplicativos.</p>
+      <label class="form-label" for="ai-usage-chart">Tokens usados por dia</label>
+      <svg id="ai-usage-chart" class="usage-chart" viewBox="0 0 500 170" role="img" aria-label="Gráfico de tokens de IA por dia"></svg>
+      <div id="usage-providers"></div>
+      <p id="usage-reset"></p>
+      <label class="form-label" for="ide-usage-chart">Perguntas enviadas por editor</label>
+      <svg id="ide-usage-chart" class="usage-chart" viewBox="0 0 500 170" role="img" aria-label="Gráfico de perguntas por editor"></svg>
+      <div class="usage-legend"><span><i class="usage-dot ide"></i>Perguntas observadas pelo Pip</span></div>
+      <div id="usage-ides"></div>
+      <p id="usage-status" role="status" aria-live="polite"></p>
+    </section>
   </div>
-  <section id="usage-section" class="section" aria-labelledby="usage-title">
-    <h2 id="usage-title">Uso de IA e editores</h2>
-    <p class="hint">Histórico local dos últimos 180 dias. O Pip não lê dados de uso de outros aplicativos.</p>
-    <label class="form-label" for="ai-usage-chart">Tokens usados por dia</label>
-    <svg id="ai-usage-chart" class="usage-chart" viewBox="0 0 500 170" role="img" aria-label="Gráfico de tokens de IA por dia"></svg>
-    <div id="usage-providers"></div>
-    <p id="usage-reset"></p>
-    <label class="form-label" for="ide-usage-chart">Perguntas enviadas por editor</label>
-    <svg id="ide-usage-chart" class="usage-chart" viewBox="0 0 500 170" role="img" aria-label="Gráfico de perguntas por editor"></svg>
-    <div class="usage-legend"><span><i class="usage-dot ide"></i>Perguntas observadas pelo Pip</span></div>
-    <div id="usage-ides"></div>
-    <p id="usage-status" role="status" aria-live="polite"></p>
+  <section id="appearance-panel" class="appearance-panel" role="tabpanel" aria-labelledby="tab-appearance" hidden>
+    <p class="hint">Escolha como o Pip aparece. As mudanças serão aplicadas ao salvar.</p>
+    <div class="preview-card section">
+      <span class="preview-title">Prévia</span>
+      <canvas id="pip-preview" width="280" height="180" role="img" aria-label="Prévia do Pip com a aparência escolhida"></canvas>
+    </div>
+    <div class="section">
+      <label class="form-label" for="pip-color">Cor do Pip</label>
+      <div class="color-control"><input id="pip-color" type="color" value="#d4d7d4" aria-label="Cor do Pip"><span>Cor principal do corpo</span></div>
+      <label class="form-label">Roupas e estilos</label>
+      <div id="outfit-categories" class="outfit-categories" role="group" aria-label="Filtrar roupas por categoria"></div>
+      <div id="outfit-grid" class="outfit-grid" role="group" aria-label="Escolha uma roupa para o Pip"></div>
+      <select id="pip-outfit" hidden aria-hidden="true"></select>
+      <label class="form-label">Cabelo</label>
+      <div id="hair-grid" class="outfit-grid" role="group" aria-label="Escolha o cabelo do Pip"></div>
+      <select id="pip-hair" hidden aria-hidden="true"><option value="none">Sem cabelo</option><option value="tuft">Topete</option><option value="fringe">Franja</option><option value="curly">Cachos</option><option value="afro">Afro</option></select>
+      <label class="form-label">Acessórios</label>
+      <div id="accessory-grid" class="outfit-grid" role="group" aria-label="Escolha um acessório para o Pip"></div>
+      <select id="pip-accessory" hidden aria-hidden="true"><option value="none">Sem acessório</option><option value="glasses">Óculos</option><option value="sunglasses">Óculos escuros</option><option value="crown">Coroa</option><option value="headphones">Fones de ouvido</option><option value="beanie">Gorro</option><option value="santa-hat">Gorro de Natal</option><option value="party-hat">Chapéu de festa</option><option value="witch-hat">Chapéu de bruxa</option><option value="bow">Laço</option><option value="pumpkin">Abóbora</option><option value="scarf">Cachecol</option></select>
+    </div>
+    <div id="appearance-status" role="status" aria-live="polite"></div>
+    <button id="appearance-save" class="btn" type="button">Salvar aparência</button>
   </section>
   </main>
+  <script src="./outfit-catalog.js"></script>
+  <script src="./pet-graphics.js"></script>
   <script src="./settings-renderer.js"></script>
 </body>
 </html>

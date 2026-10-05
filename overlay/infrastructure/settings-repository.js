@@ -1,6 +1,8 @@
 const { app, safeStorage } = require('electron');
 const fs = require('fs/promises');
 const path = require('path');
+const outfitCatalog = require('../outfit-catalog');
+const OUTFIT_IDS = new Set(outfitCatalog.map((outfit) => outfit.id));
 
 const DEFAULTS = {
   version: 1,
@@ -8,6 +10,7 @@ const DEFAULTS = {
   geminiApiKey: null,
   alfredUrl: 'http://127.0.0.1:8000',
   alfredSession: 'pip-editor',
+  appearance: { color: '#d4d7d4', outfit: 'none', hair: 'none', accessory: 'none' },
 };
 
 let cachedSettings;
@@ -59,6 +62,7 @@ async function readSettings() {
     alfredUrl,
     alfredSession: typeof parsed.alfredSession === 'string' ? parsed.alfredSession.slice(0, 120) : DEFAULTS.alfredSession,
     geminiApiKey: typeof parsed.geminiApiKey === 'string' ? parsed.geminiApiKey : null,
+    appearance: sanitizeAppearance(parsed.appearance),
   };
   return cachedSettings;
 }
@@ -83,6 +87,7 @@ async function getPublicSettings() {
   const settings = await readSettings();
   const providerOverride = (process.env.PIP_AI_PROVIDER || '').toLowerCase();
   return {
+    appearance: settings.appearance,
     provider: providerOverride === 'alfred' || providerOverride === 'gemini'
       ? providerOverride
       : settings.provider,
@@ -143,6 +148,7 @@ async function saveSettings(input) {
       : typeof input.alfredSession === 'string' && input.alfredSession.trim()
         ? input.alfredSession.trim().slice(0, 120)
         : DEFAULTS.alfredSession,
+    appearance: sanitizeAppearance(input.appearance || current.appearance),
   };
 
   if (input.removeGeminiApiKey === true) {
@@ -160,4 +166,17 @@ async function saveSettings(input) {
   return getPublicSettings();
 }
 
-module.exports = { getPublicSettings, getProviderSettings, getGeminiApiKey, saveSettings, validateAlfredUrl };
+function sanitizeAppearance(value) {
+  const appearance = value && typeof value === 'object' ? value : {};
+  const color = /^#[0-9a-f]{6}$/i.test(appearance.color) ? appearance.color : DEFAULTS.appearance.color;
+  return {
+    color,
+    outfit: OUTFIT_IDS.has(appearance.outfit) ? appearance.outfit : 'none',
+    hair: ['none', 'tuft', 'fringe', 'curly', 'afro'].includes(appearance.hair) ? appearance.hair : 'none',
+    accessory: ['none', 'glasses', 'sunglasses', 'crown', 'headphones', 'beanie', 'santa-hat', 'party-hat', 'witch-hat', 'bow', 'pumpkin', 'scarf'].includes(appearance.accessory) ? appearance.accessory : 'none',
+  };
+}
+
+async function getAppearance() { return (await readSettings()).appearance; }
+
+module.exports = { getPublicSettings, getProviderSettings, getGeminiApiKey, saveSettings, validateAlfredUrl, getAppearance };

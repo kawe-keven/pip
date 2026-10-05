@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   onEvent: (cb) => ipcRenderer.on('ev', (_, e) => cb(e)),
+  getAppearance: () => ipcRenderer.invoke('appearance:get'),
   setInteractive: (v) => ipcRenderer.send('interactive', v),
   openChat: () => ipcRenderer.send('chat-open'),
   closeChat: () => ipcRenderer.send('chat-close'),

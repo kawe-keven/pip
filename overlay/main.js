@@ -335,6 +335,10 @@ app.whenReady().then(() => {
     conversationService,
     dispatchBridgeRequest,
   });
+  ipcMain.handle('appearance:get', async (event) => {
+    if (!isOverlaySender(event)) throw new Error('Origem da solicitação inválida.');
+    return settingsRepository.getAppearance();
+  });
   registerSettingsIpc({
     ipcMain,
     app,
@@ -350,6 +354,9 @@ app.whenReady().then(() => {
     loopbackUrl,
     checkAlfredHealth,
     environment: process.env,
+    notifyAppearance: (appearance) => {
+      if (win && !win.isDestroyed()) win.webContents.send('ev', { type: 'appearance', appearance });
+    },
   });
   pollPointer();
 

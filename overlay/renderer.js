@@ -36,6 +36,11 @@ const MAX_TRANSCRIPT_MESSAGES = 80;
 const MEDIA_PAUSE_HIDE_MS = 6000;
 const EMOTION_COLORS = { happy:'#d7e4d8', joy:'#f0dfae', worried:'#e4d9c9', sad:'#d1d8df', sleepy:'#d2d2d0', thinking:'#dce2d5', annoyed:'#dfd3d0', dizzy:'#e3dfc9', angry:'#e62424', confused:'#ddd6c9', love:'#edc7d7', excited:'#f1d29d' };
 const graphics = window.PipPetGraphics.createPetGraphics(x, EMOTION_COLORS);
+let appearance = { color: '#d4d7d4', outfit: 'none', hair: 'none', accessory: 'none' };
+window.api.getAppearance().then((value) => { appearance = { ...appearance, ...value }; graphics.setBaseColor(appearance.color); requestDraw(); }).catch(() => {});
+window.api.onEvent((event) => {
+  if (event?.type === 'appearance') { appearance = { ...appearance, ...event.appearance }; graphics.setBaseColor(appearance.color); requestDraw(); }
+});
 const STICKY = ['worried', 'sleepy', 'love'];
 const REST_POSE = { eyeOpen:1, eyeLookX:0, eyeLookY:0, eyeScale:1, squash:0, bodyTilt:0, bobAmplitude:2, bobSpeed:2,
   emotion:{ happy:0, joy:0, worried:0, sad:0, sleepy:0, thinking:0, annoyed:0, dizzy:0, angry:0, confused:0, love:0, excited:0 } };
@@ -816,7 +821,7 @@ function draw(timestamp) {
   const cx = CX + ox, cy = CY + oy + (42 - h) / 2 - receiveLift;
   const shellRadius = h * 0.34;
   x.save(); x.translate(cx, cy); x.rotate(musicTilt); x.translate(-cx, -cy);
-  if (musicStyle === 'calm') graphics.drawHeadsetBand(cx, cy - h / 2, w, musicMotion);
+  graphics.drawHeadsetBand(cx, cy - h / 2, w, Math.max(musicStyle === 'calm' ? musicMotion : 0, appearance.accessory === 'headphones' ? 1 : 0));
   if (greetingAmount > 0.02 && dropAmount < 0.1) {
     const wavePhase = t * 7.5;
     const wave = Math.sin(wavePhase) * greetingAmount;
@@ -838,30 +843,34 @@ function draw(timestamp) {
   }
   const top = cy - h / 2, bottom = cy + h / 2, left = cx - w / 2, right = cx + w / 2;
   const shell = x.createLinearGradient(cx, top, cx, bottom);
-  const anger = pose.emotion.angry;
-  shell.addColorStop(0, graphics.mixHexColors('#ffffff', '#ff4b4b', anger));
-  shell.addColorStop(0.16, graphics.mixHexColors('#f4f6f3', '#f12e2e', anger));
-  shell.addColorStop(0.55, graphics.getEmotionColor(pose.emotion));
-  shell.addColorStop(1, graphics.mixHexColors('#929994', '#8e1111', anger));
+  const shellColors = graphics.getShellGradientColors(pose.emotion);
+  shell.addColorStop(0, shellColors[0]);
+  shell.addColorStop(0.16, shellColors[1]);
+  shell.addColorStop(0.55, shellColors[2]);
+  shell.addColorStop(1, shellColors[3]);
   x.fillStyle = shell;
   x.shadowColor = '#00000055'; x.shadowBlur = 11; x.shadowOffsetY = 5;
   x.beginPath(); x.roundRect(left, top, w, h, shellRadius); x.fill();
+  x.shadowColor = 'transparent'; x.shadowBlur = 0; x.shadowOffsetY = 0;
+  graphics.drawOutfit(cx, cy, w, h, appearance.outfit);
+  graphics.drawHair(cx, top, appearance.hair);
+  if (appearance.accessory !== 'none' && appearance.accessory !== 'headphones') graphics.drawAccessory(cx, cy, top, w, appearance.accessory);
   x.save();
   x.beginPath(); x.roundRect(left, top, w, h, shellRadius); x.clip();
   const highlight = x.createRadialGradient(cx - w * 0.28, top + h * 0.18, 1, cx - w * 0.28, top + h * 0.18, w * 0.72);
   highlight.addColorStop(0, '#ffffffa8'); highlight.addColorStop(0.42, '#ffffff38'); highlight.addColorStop(1, '#ffffff00');
-  x.fillStyle = highlight; x.fillRect(left, top, w, h);
+  x.globalAlpha = graphics.getBaseHighlightAlpha(); x.fillStyle = highlight; x.fillRect(left, top, w, h);
   const sideShade = x.createLinearGradient(left, cy, right, cy);
   sideShade.addColorStop(0, '#ffffff00'); sideShade.addColorStop(0.72, '#61686108'); sideShade.addColorStop(1, '#343a3540');
   x.fillStyle = sideShade; x.fillRect(left, top, w, h);
   x.restore();
   x.shadowColor = 'transparent'; x.shadowBlur = 0; x.shadowOffsetY = 0;
-  x.strokeStyle = graphics.mixHexColors('#747c75', '#720d0d', anger); x.lineWidth = 1; x.globalAlpha = 0.5;
+  x.strokeStyle = graphics.getShellOutlineColor(pose.emotion); x.lineWidth = 1; x.globalAlpha = 0.5;
   x.beginPath(); x.roundRect(left, top, w, h, shellRadius); x.stroke();
   x.globalAlpha = 1;
   x.strokeStyle = '#ffffffa0'; x.lineWidth = 1;
   x.beginPath(); x.moveTo(left + shellRadius, top + 1); x.quadraticCurveTo(cx, top - 0.5, right - shellRadius, top + 1); x.stroke();
-  if (musicStyle === 'calm') graphics.drawHeadsetCups(cx, cy, w, musicMotion);
+  graphics.drawHeadsetCups(cx, cy, w, Math.max(musicStyle === 'calm' ? musicMotion : 0, appearance.accessory === 'headphones' ? 1 : 0));
   const love = Math.max(pose.emotion.love, affection ? 0.75 : 0);
   if (love > 0.03) {
     for (const s of [-1, 1]) {
@@ -891,6 +900,7 @@ function draw(timestamp) {
       x.fillStyle = '#ffffffb0'; x.beginPath(); x.arc(ex - 1.1, ey - 2.5, 1.15, 0, Math.PI * 2); x.fill();
     }
   }
+  graphics.drawOutfitFace(cx, cy, w, h, appearance.outfit);
   const angry = pose.emotion.angry;
   const confused = pose.emotion.confused;
   const sad = pose.emotion.sad;
