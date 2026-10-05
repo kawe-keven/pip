@@ -43,14 +43,16 @@
   body.chat-open #chat{display:flex}
   #chat-head{height:34px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 2px 6px}
   #chat-nav,#chat-actions{display:flex;align-items:center;gap:4px}
-  #chat-close,#chat-new,#chat-history,#chat-attach,#chat-settings{display:grid;place-items:center;width:31px;height:29px;border:0;border-radius:9px;background:transparent;color:#c4c5cb;line-height:1;cursor:pointer}
+  #chat-close,#chat-new,#chat-history,#chat-demo,#chat-attach,#chat-settings{display:grid;place-items:center;width:31px;height:29px;border:0;border-radius:9px;background:transparent;color:#c4c5cb;line-height:1;cursor:pointer}
   #chat-close{font-size:19px}
   #chat-new{font-size:17px}
   #chat-history{font-size:18px}
+  #chat-demo{font-size:15px}
+  #chat-demo[aria-pressed="true"]{background:#ffffff18;color:#fff}
   #chat-attach{font-size:17px}
   #chat-settings{font-size:15px}
-  #chat-close:hover,#chat-new:hover,#chat-history:hover,#chat-attach:hover,#chat-settings:hover{background:#ffffff12;color:#fff}
-  #chat-close:focus-visible,#chat-new:focus-visible,#chat-history:focus-visible,#chat-attach:focus-visible,#chat-settings:focus-visible{outline:2px solid #f0f0f2;outline-offset:1px}
+  #chat-close:hover,#chat-new:hover,#chat-history:hover,#chat-demo:hover,#chat-attach:hover,#chat-settings:hover{background:#ffffff12;color:#fff}
+  #chat-close:focus-visible,#chat-new:focus-visible,#chat-history:focus-visible,#chat-demo:focus-visible,#chat-attach:focus-visible,#chat-settings:focus-visible{outline:2px solid #f0f0f2;outline-offset:1px}
   #chat-current{display:grid;place-items:center;width:31px;height:24px;border-radius:14px;background:#25262b}
   .chat-bubble-icon{position:relative;width:12px;height:9px;border-radius:6px;background:#f1f1f3}
   .chat-bubble-icon::after{position:absolute;left:2px;bottom:-2px;width:4px;height:4px;background:#f1f1f3;content:"";clip-path:polygon(0 0,100% 0,0 100%)}
@@ -76,7 +78,7 @@
   #chat-send{display:grid;place-items:center;flex:none;width:29px;height:29px;border:0;border-radius:50%;background:var(--accent);color:var(--accent-ink);font:600 17px/1 "Segoe UI",sans-serif;cursor:pointer}
   #chat-send[data-cancelling="false"]{width:auto;padding:0 11px;border-radius:16px;font:600 12px "Segoe UI",sans-serif}
   #chat-send[data-cancelling="true"]{width:auto;padding:0 11px;border-radius:16px;background:#d4d4da;font:600 12px "Segoe UI",sans-serif}
-  #chat-send:disabled,#chat-close:disabled,#chat-new:disabled,#chat-history:disabled,#chat-attach:disabled{opacity:.55;cursor:default}
+  #chat-send:disabled,#chat-close:disabled,#chat-new:disabled,#chat-history:disabled,#chat-demo:disabled,#chat-attach:disabled{opacity:.55;cursor:default}
   #chat-history-panel{position:absolute;z-index:5;inset:9px 13px 10px 84px;display:flex;flex-direction:column;min-height:0;padding:12px;border:1px solid #3a3b43;border-radius:12px;background:#1b1c22}
   #chat-history-panel[hidden]{display:none}
   #chat-history-title{margin:0 0 8px;color:var(--text);font-size:13px;font-weight:600}
@@ -106,6 +108,7 @@
       <span id="chat-current" aria-label="Conversa atual"><span class="chat-bubble-icon"></span></span>
       <button id="chat-new" type="button" aria-label="Nova conversa" title="Nova conversa">＋</button>
       <button id="chat-history" type="button" aria-label="Conversas salvas" title="Conversas salvas">◷</button>
+      <button id="chat-demo" type="button" aria-label="Testar animações do Pip" aria-pressed="false" title="Testar animações">▶</button>
       <button id="chat-attach" type="button" aria-label="Anexar arquivos" title="Anexar arquivos">↥</button>
     </div>
     <div id="chat-actions"><button id="chat-settings" type="button" aria-label="Abrir configurações" title="Configurações">⚙</button></div>
@@ -140,6 +143,7 @@ const chatSend = document.getElementById('chat-send');
 const chatAttach = document.getElementById('chat-attach');
 const chatNew = document.getElementById('chat-new');
 const chatHistory = document.getElementById('chat-history');
+const chatDemo = document.getElementById('chat-demo');
 const chatHistoryPanel = document.getElementById('chat-history-panel');
 const chatHistoryList = document.getElementById('chat-history-list');
 const chatCurrent = document.getElementById('chat-current');
@@ -154,6 +158,8 @@ let attachedFiles = [], previousFrameAt = 0, animationFramePending = false;
 let activeChatRequestId = null, chatRequestSequence = 0;
 let currentConversation = createConversation();
 let notificationTimer;
+let animationDemoTimer = null;
+let animationDemoIndex = -1;
 const MAX_TRANSCRIPT_MESSAGES = 80;
 const EMOTION_COLORS = { happy:'#d7e4d8', joy:'#f0dfae', worried:'#e4d9c9', sad:'#d1d8df', sleepy:'#d2d2d0', thinking:'#dce2d5', annoyed:'#dfd3d0', dizzy:'#e3dfc9', angry:'#e0c4bd', confused:'#ddd6c9', love:'#edc7d7', excited:'#f1d29d' };
 const STICKY = ['worried', 'sleepy', 'love'];
@@ -189,6 +195,10 @@ const MOOD_POSES = {
 const pose = { ...REST_POSE, emotion:{ ...REST_POSE.emotion } };
 let poseTarget = { ...REST_POSE, emotion:{ ...REST_POSE.emotion } };
 const AMBIENT_MOODS = ['angry', 'confused', 'excited'];
+const ANIMATION_DEMO = [
+  ['angry', 'Raiva'], ['confused', 'Confusão'], ['sad', 'Tristeza'],
+  ['joy', 'Alegria'], ['happy', 'Felicidade'], ['love', 'Amor'], ['excited', 'Empolgação'],
+];
 let nextAmbientMoodAt = Date.now() + 22_000 + Math.random() * 12_000;
 
 function setMood(m) {
@@ -197,6 +207,36 @@ function setMood(m) {
   if (!AMBIENT_MOODS.includes(mood)) nextAmbientMoodAt = Date.now() + 20_000 + Math.random() * 15_000;
   const target = MOOD_POSES[mood];
   poseTarget = { ...target, emotion:{ ...target.emotion } };
+}
+function stopAnimationDemo() {
+  if (!animationDemoTimer) return;
+  clearInterval(animationDemoTimer);
+  animationDemoTimer = null;
+  animationDemoIndex = -1;
+  chatDemo.textContent = '▶';
+  chatDemo.title = 'Testar animações';
+  chatDemo.setAttribute('aria-label', 'Testar animações do Pip');
+  chatDemo.setAttribute('aria-pressed', 'false');
+  setMood('idle');
+}
+function toggleAnimationDemo() {
+  if (animationDemoTimer) {
+    stopAnimationDemo();
+    chatMessage.textContent = 'Demonstração encerrada.';
+    return;
+  }
+  chatDemo.textContent = '■';
+  chatDemo.title = 'Parar demonstração';
+  chatDemo.setAttribute('aria-label', 'Parar demonstração de animações');
+  chatDemo.setAttribute('aria-pressed', 'true');
+  const showNextMood = () => {
+    animationDemoIndex = (animationDemoIndex + 1) % ANIMATION_DEMO.length;
+    const [nextMood, label] = ANIMATION_DEMO[animationDemoIndex];
+    setMood(nextMood);
+    chatMessage.textContent = `Testando animação: ${label}`;
+  };
+  showNextMood();
+  animationDemoTimer = setInterval(showNextMood, 2200);
 }
 function smooth(current, target, elapsed, rate = 9) {
   return current + (target - current) * (1 - Math.exp(-elapsed * rate));
@@ -459,6 +499,7 @@ function cancelActiveChatRequest() {
 
 function closeChat() {
   if (!chatOpen) return;
+  stopAnimationDemo();
   cancelActiveChatRequest();
   chatOpen = false;
   movePetToIsland();
@@ -628,6 +669,7 @@ document.addEventListener('click', (event) => {
 });
 bub.addEventListener('click', () => { bub.style.display = 'none'; });
 document.getElementById('chat-close').addEventListener('click', closeChat);
+chatDemo.addEventListener('click', toggleAnimationDemo);
 chatNew.addEventListener('click', startNewConversation);
 chatHistory.addEventListener('click', toggleConversationHistory);
 document.getElementById('chat-settings').addEventListener('click', () => {
@@ -638,6 +680,7 @@ chatAttach.addEventListener('click', () => attachFiles(window.api.chooseFiles())
 chatForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   if (activeChatRequestId) { cancelActiveChatRequest(); return; }
+  stopAnimationDemo();
   const question = chatInput.value.trim();
   if (!question || chatInput.disabled) return;
   const requestId = `pip-overlay-chat-${Date.now()}-${++chatRequestSequence}`;
@@ -645,6 +688,7 @@ chatForm.addEventListener('submit', async (event) => {
   chatInput.disabled = true;
   chatNew.disabled = true;
   chatHistory.disabled = true;
+  chatDemo.disabled = true;
   chatAttach.disabled = true;
   chatSend.disabled = false;
   chatSend.textContent = 'Cancelar';
@@ -681,6 +725,7 @@ chatForm.addEventListener('submit', async (event) => {
     chatInput.disabled = false;
     chatNew.disabled = false;
     chatHistory.disabled = false;
+    chatDemo.disabled = false;
     chatAttach.disabled = false;
     chatSend.disabled = false;
     chatSend.textContent = '↑';
