@@ -28,9 +28,11 @@ let attachedFiles = [], previousFrameAt = 0, animationFramePending = false;
 let activeChatRequestId = null, chatRequestSequence = 0;
 let currentConversation = createConversation();
 let notificationTimer;
+let mediaHideTimer;
 let animationDemoTimer = null;
 let animationDemoIndex = -1;
 const MAX_TRANSCRIPT_MESSAGES = 80;
+const MEDIA_PAUSE_HIDE_MS = 6000;
 const EMOTION_COLORS = { happy:'#d7e4d8', joy:'#f0dfae', worried:'#e4d9c9', sad:'#d1d8df', sleepy:'#d2d2d0', thinking:'#dce2d5', annoyed:'#dfd3d0', dizzy:'#e3dfc9', angry:'#e62424', confused:'#ddd6c9', love:'#edc7d7', excited:'#f1d29d' };
 const graphics = window.PipPetGraphics.createPetGraphics(x, EMOTION_COLORS);
 const STICKY = ['worried', 'sleepy', 'love'];
@@ -269,14 +271,25 @@ function updateMedia(media) {
   const artist = typeof media?.artist === 'string' ? media.artist.trim() : '';
   const available = !!(title || artist);
   const playing = available && media?.playing === true;
+  clearTimeout(mediaHideTimer);
   musicPlaying = playing;
-  musicStyle = classifyMusicStyle(media);
+  musicStyle = available ? classifyMusicStyle(media) : 'calm';
   if (playing && !document.body.classList.contains('media-playing')) musicPhase = 0;
   document.body.classList.toggle('media-available', available);
   document.body.classList.toggle('media-playing', playing);
-  islandTitle.textContent = title || 'Reproduzindo';
+  islandTitle.textContent = title;
   islandArtist.textContent = artist;
-  islandStatus.textContent = media?.playing ? 'TOCANDO' : 'PAUSADA';
+  islandStatus.textContent = playing ? 'TOCANDO' : available ? 'PAUSADA' : '';
+  if (available && !playing) {
+    mediaHideTimer = setTimeout(() => {
+      if (musicPlaying) return;
+      document.body.classList.remove('media-available', 'media-playing');
+      islandTitle.textContent = '';
+      islandArtist.textContent = '';
+      islandStatus.textContent = '';
+      musicStyle = 'calm';
+    }, MEDIA_PAUSE_HIDE_MS);
+  }
 }
 
 function islandPoint(clientX, clientY) {
