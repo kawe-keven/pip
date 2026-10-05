@@ -1,3 +1,5 @@
+const { success, failure } = require('../application/provider-result');
+
 function buildPrompt(payload, { maxChars = 512_000 } = {}) {
   const question = typeof payload.question === 'string' ? payload.question.trim() : '';
   const code = typeof payload.code === 'string' ? payload.code.slice(0, 12_000) : '';
@@ -61,4 +63,3 @@ function loopbackUrl(value, fallback) {
 }
 
 module.exports = { buildPrompt, loopbackUrl, providerSuccess: success, providerFailure: failure };
-const { success, failure } = require('../application/provider-result');
