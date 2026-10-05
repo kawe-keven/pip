@@ -39,16 +39,18 @@
   #bubble{display:none}
   #chat{position:absolute;z-index:1;left:0;right:0;top:0;bottom:8px;box-sizing:border-box;padding:7px 9px 9px;
     border:1px solid #090a0c;border-radius:18px;background:#030405;color:var(--text);display:none;flex-direction:column;overflow:hidden;
-    box-shadow:0 16px 42px #0009;animation:chat-arrive 180ms ease-out}
+    box-shadow:inset 0 1px #ffffff08}
   body.chat-open #chat{display:flex}
-  @keyframes chat-arrive{from{opacity:0;transform:translateY(-5px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
   #chat-head{height:34px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 2px 6px}
   #chat-nav,#chat-actions{display:flex;align-items:center;gap:4px}
-  #chat-close,#chat-attach,#chat-settings{display:grid;place-items:center;width:31px;height:29px;border:0;border-radius:9px;background:transparent;color:#c4c5cb;line-height:1;cursor:pointer}
+  #chat-close,#chat-new,#chat-history,#chat-attach,#chat-settings{display:grid;place-items:center;width:31px;height:29px;border:0;border-radius:9px;background:transparent;color:#c4c5cb;line-height:1;cursor:pointer}
   #chat-close{font-size:19px}
-  #chat-attach{font-size:18px}
+  #chat-new{font-size:17px}
+  #chat-history{font-size:18px}
+  #chat-attach{font-size:17px}
   #chat-settings{font-size:15px}
-  #chat-close:hover,#chat-attach:hover,#chat-settings:hover{background:#ffffff12;color:#fff}
+  #chat-close:hover,#chat-new:hover,#chat-history:hover,#chat-attach:hover,#chat-settings:hover{background:#ffffff12;color:#fff}
+  #chat-close:focus-visible,#chat-new:focus-visible,#chat-history:focus-visible,#chat-attach:focus-visible,#chat-settings:focus-visible{outline:2px solid #f0f0f2;outline-offset:1px}
   #chat-current{display:grid;place-items:center;width:31px;height:24px;border-radius:14px;background:#25262b}
   .chat-bubble-icon{position:relative;width:12px;height:9px;border-radius:6px;background:#f1f1f3}
   .chat-bubble-icon::after{position:absolute;left:2px;bottom:-2px;width:4px;height:4px;background:#f1f1f3;content:"";clip-path:polygon(0 0,100% 0,0 100%)}
@@ -56,7 +58,7 @@
     border-radius:15px;background:radial-gradient(ellipse at 52% 108%,#3d3e69 0%,#252631 32%,#17181d 68%)}
   body.chat-open.file-dragging #chat-stage::after{position:absolute;z-index:4;top:8px;left:85px;right:14px;padding:7px 9px;border:1px solid #515260;border-radius:8px;
     background:#17181d;color:var(--text);text-align:center;font-size:12px;content:"Solte para anexar ao Pip"}
-  #chat-transcript{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#555660 transparent}
+  #chat-transcript{display:flex;flex:1 1 0;min-height:120px;flex-direction:column;overflow-y:auto;overscroll-behavior:contain;padding:10px;border-radius:11px;background:#ffffff05;scrollbar-width:thin;scrollbar-color:#555660 transparent}
   .chat-entry{padding:7px 9px;margin:3px 0;border-radius:8px;background:#ffffff08;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}
   .chat-entry-user{background:#ffffff0a}
   .chat-entry-pip{background:#ffffff05}
@@ -212,7 +214,7 @@ function isPetAtClientPoint(clientX, clientY, radius = 58) {
 function movePetToChat() {
   chat.prepend(c);
   CX = 52;
-  CY = 196;
+  CY = window.innerHeight - 54;
 }
 
 function movePetToIsland() {
@@ -221,9 +223,20 @@ function movePetToIsland() {
   CY = 40;
 }
 
+function resizeCanvas() {
+  const height = Math.max(250, Math.round(window.innerHeight));
+  if (c.height !== height) c.height = height;
+  c.style.height = `${height}px`;
+  CY = chatOpen ? height - 54 : 40;
+  requestDraw();
+}
+
 function openChat() {
   if (chatOpen) return;
   chatOpen = true;
+  // Keep the mascot in its familiar resting pose when the larger chat opens.
+  clickAmount = 0.45;
+  setMood('idle');
   movePetToChat();
   document.body.classList.add('chat-open');
   bub.style.display = 'none';

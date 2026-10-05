@@ -17,6 +17,7 @@ const MAX_BODY_BYTES = 64 * 1024;
 const MAX_CLAUDE_HOOK_BODY_BYTES = 512 * 1024;
 const WINDOW_WIDTH = 640;
 const WINDOW_HEIGHT = 250;
+const CHAT_WINDOW_HEIGHT = 440;
 const PIPE_NAME = '\\\\.\\pipe\\pip-desktop-v1';
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 let win;
@@ -50,6 +51,7 @@ function openSettings() {
   abortLocalChatQuestions();
   if (win && !win.isDestroyed()) {
     chatOpen = false;
+    placeOnDisplay(screen.getDisplayNearestPoint(screen.getCursorScreenPoint()));
     pointerInteracting = false;
     win.blur();
     win.setFocusable(false);
@@ -124,7 +126,8 @@ async function syncAlfredNotifications() {
 function placeOnDisplay(display) {
   if (!win || win.isDestroyed()) return;
   const { x, y, width } = display.bounds;
-  win.setBounds({ x: Math.round(x + (width - WINDOW_WIDTH) / 2), y, width: WINDOW_WIDTH, height: WINDOW_HEIGHT });
+  const height = chatOpen ? Math.min(CHAT_WINDOW_HEIGHT, display.workAreaSize.height) : WINDOW_HEIGHT;
+  win.setBounds({ x: Math.round(x + (width - WINDOW_WIDTH) / 2), y, width: WINDOW_WIDTH, height });
   lastDisplayId = display.id;
 }
 
@@ -365,7 +368,7 @@ app.whenReady().then(() => {
   const { x, y, width } = display.bounds;
   win = new BrowserWindow({
     width: WINDOW_WIDTH, height: WINDOW_HEIGHT, x: Math.round(x + (width - WINDOW_WIDTH) / 2), y,
-    transparent: true, frame: false, alwaysOnTop: true, skipTaskbar: true,
+    transparent: true, backgroundColor: '#00000000', frame: false, alwaysOnTop: true, skipTaskbar: true,
     focusable: false, hasShadow: false, resizable: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -397,6 +400,7 @@ app.whenReady().then(() => {
     if (paused || !win || win.isDestroyed()) return;
     chatOpen = true;
     pointerInteracting = true;
+    placeOnDisplay(screen.getDisplayNearestPoint(screen.getCursorScreenPoint()));
     reveal(screen.getDisplayNearestPoint(screen.getCursorScreenPoint()));
     win.setFocusable(true);
     win.setIgnoreMouseEvents(false);
@@ -415,6 +419,7 @@ app.whenReady().then(() => {
     chatOpen = false;
     pointerInteracting = false;
     if (!win || win.isDestroyed()) return;
+    placeOnDisplay(screen.getDisplayNearestPoint(screen.getCursorScreenPoint()));
     win.blur();
     win.setFocusable(false);
     win.setIgnoreMouseEvents(true, { forward: true });
