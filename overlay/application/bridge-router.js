@@ -59,7 +59,10 @@ function createBridgeRouter({ ask, emit, revealForEvent, beforeQuestion, hideLat
     emit({ type: 'thinking' });
 
     try {
-      const response = await ask(data, { signal: controller.signal });
+      const response = await ask(data, {
+        signal: controller.signal,
+        onProgress: options.localChat && typeof options.onProgress === 'function' ? options.onProgress : undefined,
+      });
       if (controller.signal.aborted) {
         throw controller.signal.reason || Object.assign(new Error('solicitação cancelada'), { name: 'AbortError' });
       }

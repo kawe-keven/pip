@@ -317,7 +317,6 @@ app.whenReady().then(() => {
     bridgeRouter.abortQuestion(requestId);
   });
   ipcMain.on('chat-close', () => {
-    abortLocalChatQuestions();
     chatOpen = false;
     pointerInteracting = false;
     if (!win || win.isDestroyed()) return;

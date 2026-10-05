@@ -26,6 +26,7 @@ let pointerOver = false, characterHovered = false, hoverStartedAt = 0, hoverAmou
 let entranceAmount = 1, greetingAmount = 0, clickAmount = 0;
 let attachedFiles = [], previousFrameAt = 0, animationFramePending = false;
 let activeChatRequestId = null, chatRequestSequence = 0;
+let streamingEntry = null, streamingTextNode = null;
 let currentConversation = createConversation();
 let notificationTimer;
 let mediaHideTimer;
@@ -266,6 +267,46 @@ function say(text, ms = 7000) {
   }, ms);
 }
 
+function showChatThinking() {
+  chatMessage.replaceChildren();
+  const label = document.createElement('span');
+  label.textContent = 'Pip está pensando';
+  const dots = document.createElement('span');
+  dots.className = 'thinking-dots';
+  dots.setAttribute('aria-hidden', 'true');
+  for (let index = 0; index < 3; index += 1) {
+    const dot = document.createElement('i');
+    dots.append(dot);
+  }
+  chatMessage.append(label, dots);
+  chatMessage.classList.add('is-thinking');
+}
+
+function setChatMessage(text) {
+  chatMessage.classList.remove('is-thinking');
+  chatMessage.textContent = text;
+}
+
+function showChatProgress(requestId, chunk) {
+  if (requestId !== activeChatRequestId || typeof chunk !== 'string' || !chunk) return;
+  setChatMessage('');
+  if (!streamingEntry) {
+    streamingEntry = document.createElement('div');
+    streamingEntry.className = 'chat-entry chat-stream-entry';
+    streamingTextNode = document.createTextNode('');
+    streamingEntry.append(streamingTextNode);
+    chatTranscript.append(streamingEntry);
+  }
+  streamingTextNode.data += chunk;
+  chatTranscript.scrollTop = chatTranscript.scrollHeight;
+}
+
+function discardStreamingPreview() {
+  streamingEntry?.remove();
+  streamingEntry = null;
+  streamingTextNode = null;
+}
+
 function updateMedia(media) {
   const title = typeof media?.title === 'string' ? media.title.trim() : '';
   const artist = typeof media?.artist === 'string' ? media.artist.trim() : '';
@@ -327,7 +368,7 @@ function openChat() {
   chatOpen = true;
   // Keep the mascot in its familiar resting pose when the larger chat opens.
   clickAmount = 0.45;
-  setMood('idle');
+  setMood(activeChatRequestId ? 'thinking' : 'idle');
   movePetToChat();
   document.body.classList.add('chat-open');
   bub.style.display = 'none';
@@ -349,26 +390,136 @@ function cancelActiveChatRequest() {
 function closeChat() {
   if (!chatOpen) return;
   stopAnimationDemo();
-  cancelActiveChatRequest();
   chatOpen = false;
   movePetToIsland();
   document.body.classList.remove('chat-open');
   window.api.closeChat();
 }
 
-function appendTranscriptMessage(role, text) {
+function appendTranscriptMessage(_role, text) {
   if (typeof text !== 'string' || !text) return;
   const entry = document.createElement('div');
-  entry.className = `chat-entry chat-entry-${role}`;
-  const label = document.createElement('span');
-  label.className = 'chat-entry-label';
-  label.textContent = role === 'user' ? 'Você' : 'Pip';
-  const message = document.createElement('span');
-  message.textContent = text;
-  entry.append(label, message);
+  entry.className = 'chat-entry';
+  appendFormattedMessage(entry, text);
   chatTranscript.append(entry);
   while (chatTranscript.childElementCount > MAX_TRANSCRIPT_MESSAGES) chatTranscript.firstElementChild.remove();
   chatTranscript.scrollTop = chatTranscript.scrollHeight;
+}
+
+const CODE_KEYWORDS = new Set(('break case chan const continue default defer else fallthrough for func go goto if import interface map package range return select struct switch type var ' +
+  'as assert async await class def del elif except finally from global in is lambda nonlocal not or pass raise try while with yield ' +
+  'export extends implements instanceof new private protected public static super this throw throws typeof void delete enum declare keyof type namespace readonly satisfies ' +
+  'fn let mut pub use mod impl trait match loop move ref self Self where crate dyn async await unsafe extern const static ' +
+  'function var do then fi end local true false null nil None True False and or not echo if elif else fi done case esac select until ' +
+  'package import func type var struct interface map range go defer chan string int int8 int16 int32 int64 uint byte rune bool error float32 float64 any').split(/\s+/));
+
+function appendFormattedMessage(container, text) {
+  const fencedCode = /```([^\r\n`]*)\r?\n([\s\S]*?)```/g;
+  let cursor = 0;
+  let match;
+  while ((match = fencedCode.exec(text))) {
+    if (match.index > cursor) container.append(document.createTextNode(text.slice(cursor, match.index)));
+    container.append(createCodeBlock(match[2].replace(/\r?\n$/, ''), match[1].trim()));
+    cursor = fencedCode.lastIndex;
+  }
+  if (cursor < text.length) container.append(document.createTextNode(text.slice(cursor)));
+}
+
+function createCodeBlock(source, language) {
+  const block = document.createElement('div');
+  block.className = 'chat-code-block';
+  const toolbar = document.createElement('div');
+  toolbar.className = 'chat-code-toolbar';
+  const languageLabel = document.createElement('span');
+  languageLabel.className = 'chat-code-language';
+  languageLabel.textContent = language || 'código';
+  const copy = document.createElement('button');
+  copy.className = 'chat-code-copy';
+  copy.type = 'button';
+  setCodeCopyIcon(copy, false);
+  copy.title = 'Copiar código';
+  copy.setAttribute('aria-label', 'Copiar código');
+  copy.addEventListener('click', async () => {
+    try {
+      await copyCodeToClipboard(source);
+      setCodeCopyIcon(copy, true);
+      copy.title = 'Copiado';
+      copy.setAttribute('aria-label', 'Código copiado');
+      setTimeout(() => {
+        setCodeCopyIcon(copy, false);
+        copy.title = 'Copiar código';
+        copy.setAttribute('aria-label', 'Copiar código');
+      }, 1400);
+    } catch {
+      copy.title = 'Não foi possível copiar';
+      copy.setAttribute('aria-label', 'Não foi possível copiar o código');
+    }
+  });
+  toolbar.append(languageLabel, copy);
+  const pre = document.createElement('pre');
+  const code = document.createElement('code');
+  code.className = 'chat-code';
+  appendHighlightedCode(code, source);
+  pre.append(code);
+  block.append(toolbar, pre);
+  return block;
+}
+
+function setCodeCopyIcon(button, copied) {
+  if (copied) {
+    button.textContent = '✓';
+    return;
+  }
+  const ns = 'http://www.w3.org/2000/svg';
+  const icon = document.createElementNS(ns, 'svg');
+  icon.setAttribute('viewBox', '0 0 20 20');
+  icon.setAttribute('width', '18');
+  icon.setAttribute('height', '18');
+  icon.setAttribute('fill', 'none');
+  icon.setAttribute('stroke', 'currentColor');
+  icon.setAttribute('stroke-width', '1.6');
+  icon.setAttribute('stroke-linejoin', 'round');
+  const rear = document.createElementNS(ns, 'rect');
+  rear.setAttribute('x', '6'); rear.setAttribute('y', '3'); rear.setAttribute('width', '10'); rear.setAttribute('height', '12'); rear.setAttribute('rx', '1.5');
+  const front = document.createElementNS(ns, 'rect');
+  front.setAttribute('x', '3'); front.setAttribute('y', '6'); front.setAttribute('width', '10'); front.setAttribute('height', '12'); front.setAttribute('rx', '1.5');
+  icon.append(rear, front);
+  button.replaceChildren(icon);
+}
+
+async function copyCodeToClipboard(source) {
+  if (navigator.clipboard?.writeText) {
+    try { await navigator.clipboard.writeText(source); return; } catch {}
+  }
+  const field = document.createElement('textarea');
+  field.value = source;
+  field.setAttribute('readonly', '');
+  field.style.position = 'fixed';
+  field.style.opacity = '0';
+  document.body.append(field);
+  field.select();
+  const copied = document.execCommand('copy');
+  field.remove();
+  if (!copied) throw new Error('Clipboard indisponível');
+}
+
+function appendHighlightedCode(container, source) {
+  const tokens = /\/\*[\s\S]*?\*\/|\/\/[^\n]*|#[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\b\d+(?:\.\d+)?\b|\b[A-Za-z_$][\w$]*\b|[^\s]|\s+/g;
+  for (const match of source.matchAll(tokens)) {
+    const value = match[0];
+    let kind = '';
+    if (/^(\/\/|\/\*|#)/.test(value)) kind = 'comment';
+    else if (/^("|'|`)/.test(value)) kind = 'string';
+    else if (/^\d/.test(value)) kind = 'number';
+    else if (CODE_KEYWORDS.has(value)) kind = 'keyword';
+    if (!kind) container.append(document.createTextNode(value));
+    else {
+      const token = document.createElement('span');
+      token.className = `syntax-${kind}`;
+      token.textContent = value;
+      container.append(token);
+    }
+  }
 }
 
 function renderAttachments() {
@@ -454,15 +605,24 @@ window.api.onEvent((e) => {
     case 'relieved': if (mood === 'worried') { setMood('happy'); say('Sem erros agora!', 3000); } break;
     case 'saved': if (!STICKY.includes(mood)) setMood('joy'); break;
     case 'happy': setMood('joy'); say(e.text || 'Passou!', 4000); break;
-    case 'sad': setMood('sad'); say(e.text || 'Falhou. Quer ajuda?', 5000); break;
+    case 'sad':
+      setMood('sad');
+      if (!activeChatRequestId) say(e.text || 'Falhou. Quer ajuda?', 5000);
+      break;
     case 'sleepy': setMood('sleepy'); break;
     case 'wake': if (mood === 'sleepy') setMood('idle'); break;
-    case 'thinking': setMood('thinking'); say(e.text || 'Pensando…', 30000); break;
-    case 'cancelled': setMood('idle'); if (chatOpen) chatMessage.textContent = 'Parei por aqui.'; break;
+    case 'thinking':
+      setMood('thinking');
+      if (activeChatRequestId) showChatThinking();
+      else say(e.text || 'Pensando…', 30000);
+      break;
+    case 'chat-progress': showChatProgress(e.requestId, e.chunk); break;
+    case 'cancelled': setMood('idle'); if (chatOpen) setChatMessage('Parei por aqui.'); break;
     case 'answer':
       setMood('joy');
-      if (chatOpen) appendTranscriptMessage('pip', e.text);
-      else say(e.text);
+      // A resposta do chat local é salva pelo resultado do pedido abaixo.
+      // Eventos sem pedido local continuam sendo avisos da ilha.
+      if (!activeChatRequestId) say(e.text);
       break;
     case 'chat-opened': resizeCanvas(); chatInput.focus(); break;
     case 'chat-dismissed':
@@ -522,7 +682,6 @@ chatDemo.addEventListener('click', toggleAnimationDemo);
 chatNew.addEventListener('click', startNewConversation);
 chatHistory.addEventListener('click', toggleConversationHistory);
 document.getElementById('chat-settings').addEventListener('click', () => {
-  cancelActiveChatRequest();
   window.api.openSettings();
 });
 chatAttach.addEventListener('click', () => attachFiles(window.api.chooseFiles()));
@@ -534,6 +693,7 @@ chatForm.addEventListener('submit', async (event) => {
   if (!question || chatInput.disabled) return;
   const requestId = `pip-overlay-chat-${Date.now()}-${++chatRequestSequence}`;
   activeChatRequestId = requestId;
+  discardStreamingPreview();
   chatInput.disabled = true;
   chatNew.disabled = true;
   chatHistory.disabled = true;
@@ -546,29 +706,33 @@ chatForm.addEventListener('submit', async (event) => {
   await saveCurrentConversation();
   chatInput.value = '';
   chatMessage.textContent = 'Pensando…';
+  showChatThinking();
   setMood('thinking');
   try {
     const result = await window.api.ask(question, requestId, currentConversation.id);
     if (result.cancelled) {
+      discardStreamingPreview();
       currentConversation.messages.push({ role: 'pip', text: result.text || 'Parei por aqui.' });
       appendTranscriptMessage('pip', result.text || 'Parei por aqui.');
       await saveCurrentConversation();
       setMood('idle');
-      chatMessage.textContent = result.text || 'Parei por aqui.';
+      setChatMessage(result.text || 'Parei por aqui.');
       return;
     }
+    discardStreamingPreview();
     currentConversation.messages.push({ role: 'pip', text: result.text || '' });
     appendTranscriptMessage('pip', result.text);
     await saveCurrentConversation();
     setMood(result.ok === false ? 'sad' : 'joy');
-    chatMessage.textContent = result.ok === false ? result.text : 'Sua vez.';
+    setChatMessage(result.ok === false ? result.text : 'Sua vez.');
   } catch (error) {
+    discardStreamingPreview();
     setMood('sad');
     const message = error.message || 'Não consegui enviar a pergunta.';
     currentConversation.messages.push({ role: 'pip', text: message });
     appendTranscriptMessage('pip', message);
     await saveCurrentConversation();
-    chatMessage.textContent = 'A pergunta não foi enviada.';
+    setChatMessage('A pergunta não foi enviada.');
   } finally {
     activeChatRequestId = null;
     chatInput.disabled = false;
