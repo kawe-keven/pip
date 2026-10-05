@@ -4,7 +4,7 @@ const conversations = new Map();
 const MAX_HISTORY_MESSAGES = 24;
 const MAX_HISTORY_CHARS = 16_000;
 const MAX_HISTORY_ITEM_CHARS = MAX_HISTORY_CHARS / 2;
-let conversationQueue = Promise.resolve();
+const conversationQueues = new Map();
 
 function rememberTurn(conversationId, conversation, userText, modelText) {
   conversation.push(
@@ -20,21 +20,31 @@ function rememberTurn(conversationId, conversation, userText, modelText) {
   while (conversations.size > 30) conversations.delete(conversations.keys().next().value);
 }
 
-function askGemini(payload, savedKey = '', externalSignal) {
-  const currentTurn = conversationQueue.catch(() => {}).then(() => performGeminiAsk(payload, savedKey, externalSignal));
-  conversationQueue = currentTurn.then(() => undefined, () => undefined);
-  return currentTurn;
+function askGemini(payload, savedKey = '', externalSignal, onProgress) {
+  const conversationId = getConversationId(payload);
+  const previous = conversationQueues.get(conversationId) || Promise.resolve();
+  const current = previous.catch(() => {}).then(() => performGeminiAsk(payload, savedKey, externalSignal, onProgress));
+  let queued;
+  queued = current.finally(() => {
+    if (conversationQueues.get(conversationId) === queued) conversationQueues.delete(conversationId);
+  });
+  conversationQueues.set(conversationId, queued);
+  return queued;
 }
 
-async function performGeminiAsk(payload, savedKey, externalSignal) {
+function getConversationId(payload) {
+  return typeof payload.conversationId === 'string' && /^[\w-]{1,80}$/.test(payload.conversationId)
+    ? payload.conversationId
+    : 'pip-default';
+}
+
+async function performGeminiAsk(payload, savedKey, externalSignal, onProgress) {
   if (externalSignal?.aborted) throw externalSignal.reason || Object.assign(new Error('solicitação cancelada'), { name: 'AbortError' });
   const key = process.env.GEMINI_API_KEY || savedKey;
   if (!key) return providerFailure('Adicione sua chave do Gemini nas configurações do Pip.');
 
-  const model = process.env.PIP_MODEL || 'gemini-3.5-flash';
-  const conversationId = typeof payload.conversationId === 'string' && /^[\w-]{1,80}$/.test(payload.conversationId)
-    ? payload.conversationId
-    : 'pip-default';
+  const model = process.env.PIP_MODEL || 'gemini-3.5-flash-lite';
+  const conversationId = getConversationId(payload);
   const savedTurns = Array.isArray(payload.conversationHistory)
     ? payload.conversationHistory.slice(-24).filter((turn) =>
       turn && ['user', 'model'].includes(turn.role) && typeof turn.text === 'string')
@@ -57,7 +67,7 @@ async function performGeminiAsk(payload, savedKey, externalSignal) {
   if (externalSignal?.aborted) cancel();
   else externalSignal?.addEventListener('abort', cancel, { once: true });
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
       signal: controller.signal,
@@ -67,12 +77,14 @@ async function performGeminiAsk(payload, savedKey, externalSignal) {
         generationConfig: { maxOutputTokens: 1024 },
       }),
     });
-    const result = await response.json();
-    if (!response.ok) return providerFailure(result.error?.message || `A API do Gemini respondeu com erro ${response.status}.`);
-    const answer = result.candidates?.[0]?.content?.parts?.map((part) => part.text).join('');
-    if (!answer) return providerFailure(result.error?.message || 'Não recebi uma resposta do Gemini.');
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      return providerFailure(result.error?.message || `A API do Gemini respondeu com erro ${response.status}.`);
+    }
+    const { answer, usage } = await readGeminiStream(response, onProgress);
+    if (!answer) return providerFailure('Não recebi uma resposta do Gemini.');
     rememberTurn(conversationId, conversation, prompt, answer);
-    const metadata = result.usageMetadata || {};
+    const metadata = usage || {};
     return providerSuccess(answer, {
       inputTokens: metadata.promptTokenCount,
       outputTokens: metadata.candidatesTokenCount,
@@ -87,6 +99,45 @@ async function performGeminiAsk(payload, savedKey, externalSignal) {
     clearTimeout(timeout);
     externalSignal?.removeEventListener('abort', cancel);
   }
+}
+
+async function readGeminiStream(response, onProgress) {
+  if (!response.body?.getReader) throw new Error('O navegador não suporta respostas em fluxo.');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let answer = '';
+  let usage;
+
+  function consumeLine(line) {
+    if (!line.startsWith('data:')) return;
+    const data = line.slice(5).trim();
+    if (!data || data === '[DONE]') return;
+    let chunk;
+    try { chunk = JSON.parse(data); } catch { return; }
+    const text = chunk.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '';
+    if (text) {
+      answer += text;
+      if (typeof onProgress === 'function') {
+        try { onProgress(text); } catch {}
+      }
+    }
+    if (chunk.usageMetadata) usage = chunk.usageMetadata;
+    if (!chunk.candidates?.length && chunk.error) throw new Error(chunk.error.message || 'Erro no fluxo do Gemini.');
+  }
+
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+    let newline;
+    while ((newline = buffer.indexOf('\n')) >= 0) {
+      consumeLine(buffer.slice(0, newline).replace(/\r$/, ''));
+      buffer = buffer.slice(newline + 1);
+    }
+    if (done) break;
+  }
+  if (buffer.trim()) consumeLine(buffer.replace(/\r$/, ''));
+  return { answer, usage };
 }
 
 module.exports = { askGemini };

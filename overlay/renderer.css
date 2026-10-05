@@ -1,12 +1,12 @@
 :root{--panel:#17181d;--panel-raised:#24252a;--border:#2b2c32;--text:#f0f0f2;--muted:#a7a8af;--accent:#f2f2f5;--accent-ink:#17181d}
-  html,body{margin:0;background:transparent;overflow:hidden;font:14px/1.45 "Segoe UI",sans-serif}
+  html,body{margin:0;background:transparent;overflow:hidden;font:14px/1.45 "Segoe UI","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji",sans-serif}
   canvas{position:absolute;left:0;top:0;width:640px;height:250px;z-index:2;pointer-events:none}
   #compact-island{position:absolute;z-index:1;left:50%;top:0;width:78px;height:6px;box-sizing:border-box;transform:translateX(-50%);overflow:hidden;
     border:1px solid #121317;border-top:0;border-radius:0 0 5px 5px;background:#030405;box-shadow:0 3px 12px #0008;cursor:pointer;
     transition:width 220ms ease,height 220ms ease,border-radius 220ms ease,padding 220ms ease}
   body.island-expanded #compact-island{width:128px;height:66px;min-height:66px;padding:0;border-radius:0 0 14px 14px}
   body.island-expanded.has-notification #compact-island{width:420px;height:96px;min-height:96px;padding:0;border-radius:0 0 14px 14px}
-  body.media-available.island-expanded:not(.has-notification) #compact-island{width:310px;height:66px;min-height:66px;padding:0;border-radius:0 0 14px 14px}
+  body.media-available.island-expanded:not(.has-notification) #compact-island{width:310px;height:82px;min-height:82px;padding:0;border-radius:0 0 14px 14px}
   body.file-dragging #compact-island{width:310px;height:66px;min-height:66px;padding:0;border-radius:0 0 14px 14px}
   body.media-playing.island-expanded #compact-island{box-shadow:0 10px 28px #0008}
   #island-collapse{position:absolute;z-index:4;top:8px;right:9px;display:none;place-items:center;width:24px;height:24px;padding:0;
@@ -14,13 +14,13 @@
   body.island-expanded #island-collapse{display:grid}
   #island-collapse:hover{background:#ffffff20;color:#fff}
   #island-collapse:focus-visible{outline:2px solid #f0f0f2;outline-offset:2px}
-  #island-media{position:relative;z-index:1;display:none;align-items:center;gap:12px;box-sizing:border-box;min-width:0;height:100%;padding-left:100px;color:var(--text)}
+  #island-media{position:relative;z-index:1;display:none;align-items:center;gap:12px;box-sizing:border-box;min-width:0;height:100%;padding:8px 0 8px 100px;color:var(--text)}
   body.media-available #island-media{display:flex}
   body.file-dragging #island-media{opacity:0}
   #island-pet-button{position:absolute;z-index:3;top:0;left:0;display:none;width:80px;height:66px;padding:0;border:0;background:transparent;cursor:pointer}
   body.island-expanded.media-available #island-pet-button{display:block}
-  #island-track{display:flex;flex:1;min-width:0;flex-direction:column;line-height:1.3}
-  #island-title,#island-artist{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #island-track{display:flex;flex:1;min-width:0;flex-direction:column;line-height:1.3;overflow-wrap:anywhere}
+  #island-title,#island-artist{white-space:normal;overflow-wrap:anywhere;unicode-bidi:plaintext;font-family:"Segoe UI","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji",sans-serif}
   #island-title{font-size:12px;font-weight:600;color:#f3f3f4}
   #island-artist{font-size:11px;color:#a7a8af}
   #island-status{flex:none;margin-right:30px;color:#a7a8af;font-size:10px}
@@ -57,12 +57,23 @@
   body.chat-open.file-dragging #chat-stage::after{position:absolute;z-index:4;top:8px;left:85px;right:14px;padding:7px 9px;border:1px solid #515260;border-radius:8px;
     background:#17181d;color:var(--text);text-align:center;font-size:12px;content:"Solte para anexar ao Pip"}
   #chat-transcript{display:flex;flex:1 1 0;min-height:120px;flex-direction:column;overflow-y:auto;overscroll-behavior:contain;padding:10px;border-radius:11px;background:#ffffff05;scrollbar-width:thin;scrollbar-color:#555660 transparent}
-  .chat-entry{padding:7px 9px;margin:3px 0;border-radius:8px;background:#ffffff08;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}
-  .chat-entry-user{background:#ffffff0a}
-  .chat-entry-pip{background:#ffffff05}
-  .chat-entry-label{display:block;margin-bottom:2px;color:var(--muted);font-size:10px;font-weight:500}
-  #chat-message{min-height:0;max-height:42px;overflow:auto;white-space:pre-wrap;font-size:11px;margin:0;color:var(--muted)}
+  .chat-entry{padding:7px 9px;margin:3px 0;border-radius:8px;background:#ffffff08;white-space:pre-wrap;overflow-wrap:anywhere;unicode-bidi:plaintext;font-family:"Segoe UI","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji",sans-serif;font-size:13px}
+  .chat-code-block{margin:10px 0;border:1px solid #303139;border-radius:9px;background:#111216;overflow:hidden;white-space:normal}
+  .chat-code-toolbar{display:flex;align-items:center;justify-content:space-between;min-height:34px;padding:3px 8px 3px 12px;border-bottom:1px solid #ffffff0b;color:#a7a8af}
+  .chat-code-language{font-size:11px;font-family:Consolas,"Cascadia Code",monospace}
+  .chat-code-copy{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:6px;background:transparent;color:#e2e2e7;font:20px/1 "Segoe UI Symbol",sans-serif;cursor:pointer}
+  .chat-code-copy:hover{background:#ffffff14}
+  .chat-code-copy:focus-visible{outline:2px solid #b9a6ff;outline-offset:1px}
+  .chat-code-block pre{max-height:320px;margin:0;padding:13px 12px;overflow:auto;tab-size:2}
+  .chat-code{color:#e5e5eb;font:12px/1.65 Consolas,"Cascadia Code",monospace;white-space:pre}
+  .syntax-keyword{color:#d783ff}.syntax-string{color:#9ce85b}.syntax-comment{color:#7994aa}.syntax-number{color:#ffbd72}
+  #chat-message{min-height:0;max-height:42px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;unicode-bidi:plaintext;font-family:"Segoe UI","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji",sans-serif;font-size:11px;margin:0;color:var(--muted)}
   #chat-message:empty{display:none}
+  #chat-message.is-thinking{display:flex;align-items:center;gap:6px;max-height:none;min-height:22px;color:#c5c5ce;font-size:12px}
+  .thinking-dots{display:inline-flex;align-items:center;gap:4px;height:12px}
+  .thinking-dots i{width:6px;height:6px;border-radius:50%;background:#92939d;animation:thinking-pulse 1.2s ease-in-out infinite}
+  .thinking-dots i:nth-child(2){animation-delay:.18s}.thinking-dots i:nth-child(3){animation-delay:.36s}
+  @keyframes thinking-pulse{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
   #attachments{display:flex;flex-wrap:wrap;gap:6px}
   .attachment{display:flex;align-items:center;gap:6px;max-width:100%;padding:4px 7px 4px 9px;border-radius:7px;background:#ffffff0d;color:var(--text);font-size:12px}
   .attachment-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -80,7 +91,12 @@
   #chat-history-title{margin:0 0 8px;color:var(--text);font-size:13px;font-weight:600}
   #chat-history-list{display:flex;flex:1;min-height:0;flex-direction:column;gap:5px;overflow:auto}
   .history-empty{margin:auto;color:var(--muted);font-size:12px;text-align:center}
+  .history-row{display:flex;align-items:center;gap:5px;min-width:0}
   .history-item{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:9px 10px;border:0;border-radius:8px;background:#ffffff08;color:var(--text);text-align:left;cursor:pointer}
+  .history-row .history-item{flex:1;min-width:0}
   .history-item:hover{background:#ffffff15}
   .history-item-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
   .history-item-date{flex:none;color:var(--muted);font-size:10px}
+  .history-delete{flex:none;width:30px;height:30px;border:0;border-radius:7px;background:transparent;color:var(--muted);font:16px/1 "Segoe UI",sans-serif;cursor:pointer}
+  .history-delete:hover{background:#e5484d22;color:#ff8589}
+  .history-delete:focus-visible{outline:2px solid #ff8589;outline-offset:1px}

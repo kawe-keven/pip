@@ -26,13 +26,21 @@ let pointerOver = false, characterHovered = false, hoverStartedAt = 0, hoverAmou
 let entranceAmount = 1, greetingAmount = 0, clickAmount = 0;
 let attachedFiles = [], previousFrameAt = 0, animationFramePending = false;
 let activeChatRequestId = null, chatRequestSequence = 0;
+let streamingEntry = null, streamingTextNode = null;
 let currentConversation = createConversation();
 let notificationTimer;
+let mediaHideTimer;
 let animationDemoTimer = null;
 let animationDemoIndex = -1;
 const MAX_TRANSCRIPT_MESSAGES = 80;
+const MEDIA_PAUSE_HIDE_MS = 6000;
 const EMOTION_COLORS = { happy:'#d7e4d8', joy:'#f0dfae', worried:'#e4d9c9', sad:'#d1d8df', sleepy:'#d2d2d0', thinking:'#dce2d5', annoyed:'#dfd3d0', dizzy:'#e3dfc9', angry:'#e62424', confused:'#ddd6c9', love:'#edc7d7', excited:'#f1d29d' };
 const graphics = window.PipPetGraphics.createPetGraphics(x, EMOTION_COLORS);
+let appearance = { color: '#d4d7d4', outfit: 'none', hair: 'none', accessory: 'none' };
+window.api.getAppearance().then((value) => { appearance = { ...appearance, ...value }; graphics.setBaseColor(appearance.color); requestDraw(); }).catch(() => {});
+window.api.onEvent((event) => {
+  if (event?.type === 'appearance') { appearance = { ...appearance, ...event.appearance }; graphics.setBaseColor(appearance.color); requestDraw(); }
+});
 const STICKY = ['worried', 'sleepy', 'love'];
 const REST_POSE = { eyeOpen:1, eyeLookX:0, eyeLookY:0, eyeScale:1, squash:0, bodyTilt:0, bobAmplitude:2, bobSpeed:2,
   emotion:{ happy:0, joy:0, worried:0, sad:0, sleepy:0, thinking:0, annoyed:0, dizzy:0, angry:0, confused:0, love:0, excited:0 } };
@@ -157,13 +165,8 @@ function showConversation(conversation) {
   chatHistoryPanel.hidden = true;
 }
 
-async function toggleConversationHistory() {
-  if (!chatHistoryPanel.hidden) {
-    chatHistoryPanel.hidden = true;
-    return;
-  }
+async function renderConversationHistory() {
   chatHistoryList.replaceChildren();
-  chatHistoryPanel.hidden = false;
   chatHistoryList.append(Object.assign(document.createElement('p'), {
     className: 'history-empty', textContent: 'Carregando conversas…',
   }));
@@ -177,6 +180,8 @@ async function toggleConversationHistory() {
       return;
     }
     for (const conversation of conversations) {
+      const row = document.createElement('div');
+      row.className = 'history-row';
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'history-item';
@@ -188,11 +193,48 @@ async function toggleConversationHistory() {
       date.textContent = new Date(conversation.updatedAt).toLocaleDateString('pt-BR');
       item.append(title, date);
       item.addEventListener('click', () => showConversation(conversation));
-      chatHistoryList.append(item);
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'history-delete';
+      remove.textContent = '×';
+      remove.title = 'Apagar conversa';
+      remove.setAttribute('aria-label', `Apagar conversa ${conversation.title || 'Conversa com o Pip'}`);
+      remove.addEventListener('click', () => deleteConversation(conversation));
+      row.append(item, remove);
+      chatHistoryList.append(row);
     }
   } catch (error) {
     chatHistoryList.replaceChildren(Object.assign(document.createElement('p'), {
       className: 'history-empty', textContent: error.message || 'Não consegui carregar as conversas.',
+    }));
+  }
+}
+
+async function toggleConversationHistory() {
+  if (!chatHistoryPanel.hidden) {
+    chatHistoryPanel.hidden = true;
+    return;
+  }
+  chatHistoryPanel.hidden = false;
+  await renderConversationHistory();
+}
+
+async function deleteConversation(conversation) {
+  const title = conversation.title || 'Conversa com o Pip';
+  if (!window.confirm(`Apagar a conversa "${title}" permanentemente?`)) return;
+  try {
+    const removed = await window.api.deleteConversation(conversation.id);
+    if (!removed) throw new Error('Esta conversa já foi apagada.');
+    if (currentConversation.id === conversation.id) {
+      currentConversation = createConversation();
+      chatCurrent.title = 'Conversa nova';
+      chatTranscript.replaceChildren();
+      chatMessage.textContent = 'Conversa apagada.';
+    }
+    await renderConversationHistory();
+  } catch (error) {
+    chatHistoryList.replaceChildren(Object.assign(document.createElement('p'), {
+      className: 'history-empty', textContent: error.message || 'Não consegui apagar esta conversa.',
     }));
   }
 }
@@ -230,19 +272,70 @@ function say(text, ms = 7000) {
   }, ms);
 }
 
+function showChatThinking() {
+  chatMessage.replaceChildren();
+  const label = document.createElement('span');
+  label.textContent = 'Pip está pensando';
+  const dots = document.createElement('span');
+  dots.className = 'thinking-dots';
+  dots.setAttribute('aria-hidden', 'true');
+  for (let index = 0; index < 3; index += 1) {
+    const dot = document.createElement('i');
+    dots.append(dot);
+  }
+  chatMessage.append(label, dots);
+  chatMessage.classList.add('is-thinking');
+}
+
+function setChatMessage(text) {
+  chatMessage.classList.remove('is-thinking');
+  chatMessage.textContent = text;
+}
+
+function showChatProgress(requestId, chunk) {
+  if (requestId !== activeChatRequestId || typeof chunk !== 'string' || !chunk) return;
+  setChatMessage('');
+  if (!streamingEntry) {
+    streamingEntry = document.createElement('div');
+    streamingEntry.className = 'chat-entry chat-stream-entry';
+    streamingTextNode = document.createTextNode('');
+    streamingEntry.append(streamingTextNode);
+    chatTranscript.append(streamingEntry);
+  }
+  streamingTextNode.data += chunk;
+  chatTranscript.scrollTop = chatTranscript.scrollHeight;
+}
+
+function discardStreamingPreview() {
+  streamingEntry?.remove();
+  streamingEntry = null;
+  streamingTextNode = null;
+}
+
 function updateMedia(media) {
   const title = typeof media?.title === 'string' ? media.title.trim() : '';
   const artist = typeof media?.artist === 'string' ? media.artist.trim() : '';
   const available = !!(title || artist);
   const playing = available && media?.playing === true;
+  clearTimeout(mediaHideTimer);
   musicPlaying = playing;
-  musicStyle = classifyMusicStyle(media);
+  musicStyle = available ? classifyMusicStyle(media) : 'calm';
   if (playing && !document.body.classList.contains('media-playing')) musicPhase = 0;
   document.body.classList.toggle('media-available', available);
   document.body.classList.toggle('media-playing', playing);
-  islandTitle.textContent = title || 'Reproduzindo';
+  islandTitle.textContent = title;
   islandArtist.textContent = artist;
-  islandStatus.textContent = media?.playing ? 'TOCANDO' : 'PAUSADA';
+  islandStatus.textContent = playing ? 'TOCANDO' : available ? 'PAUSADA' : '';
+  if (available && !playing) {
+    mediaHideTimer = setTimeout(() => {
+      if (musicPlaying) return;
+      document.body.classList.remove('media-available', 'media-playing');
+      islandTitle.textContent = '';
+      islandArtist.textContent = '';
+      islandStatus.textContent = '';
+      musicStyle = 'calm';
+    }, MEDIA_PAUSE_HIDE_MS);
+  }
 }
 
 function islandPoint(clientX, clientY) {
@@ -280,7 +373,7 @@ function openChat() {
   chatOpen = true;
   // Keep the mascot in its familiar resting pose when the larger chat opens.
   clickAmount = 0.45;
-  setMood('idle');
+  setMood(activeChatRequestId ? 'thinking' : 'idle');
   movePetToChat();
   document.body.classList.add('chat-open');
   bub.style.display = 'none';
@@ -302,26 +395,136 @@ function cancelActiveChatRequest() {
 function closeChat() {
   if (!chatOpen) return;
   stopAnimationDemo();
-  cancelActiveChatRequest();
   chatOpen = false;
   movePetToIsland();
   document.body.classList.remove('chat-open');
   window.api.closeChat();
 }
 
-function appendTranscriptMessage(role, text) {
+function appendTranscriptMessage(_role, text) {
   if (typeof text !== 'string' || !text) return;
   const entry = document.createElement('div');
-  entry.className = `chat-entry chat-entry-${role}`;
-  const label = document.createElement('span');
-  label.className = 'chat-entry-label';
-  label.textContent = role === 'user' ? 'Você' : 'Pip';
-  const message = document.createElement('span');
-  message.textContent = text;
-  entry.append(label, message);
+  entry.className = 'chat-entry';
+  appendFormattedMessage(entry, text);
   chatTranscript.append(entry);
   while (chatTranscript.childElementCount > MAX_TRANSCRIPT_MESSAGES) chatTranscript.firstElementChild.remove();
   chatTranscript.scrollTop = chatTranscript.scrollHeight;
+}
+
+const CODE_KEYWORDS = new Set(('break case chan const continue default defer else fallthrough for func go goto if import interface map package range return select struct switch type var ' +
+  'as assert async await class def del elif except finally from global in is lambda nonlocal not or pass raise try while with yield ' +
+  'export extends implements instanceof new private protected public static super this throw throws typeof void delete enum declare keyof type namespace readonly satisfies ' +
+  'fn let mut pub use mod impl trait match loop move ref self Self where crate dyn async await unsafe extern const static ' +
+  'function var do then fi end local true false null nil None True False and or not echo if elif else fi done case esac select until ' +
+  'package import func type var struct interface map range go defer chan string int int8 int16 int32 int64 uint byte rune bool error float32 float64 any').split(/\s+/));
+
+function appendFormattedMessage(container, text) {
+  const fencedCode = /```([^\r\n`]*)\r?\n([\s\S]*?)```/g;
+  let cursor = 0;
+  let match;
+  while ((match = fencedCode.exec(text))) {
+    if (match.index > cursor) container.append(document.createTextNode(text.slice(cursor, match.index)));
+    container.append(createCodeBlock(match[2].replace(/\r?\n$/, ''), match[1].trim()));
+    cursor = fencedCode.lastIndex;
+  }
+  if (cursor < text.length) container.append(document.createTextNode(text.slice(cursor)));
+}
+
+function createCodeBlock(source, language) {
+  const block = document.createElement('div');
+  block.className = 'chat-code-block';
+  const toolbar = document.createElement('div');
+  toolbar.className = 'chat-code-toolbar';
+  const languageLabel = document.createElement('span');
+  languageLabel.className = 'chat-code-language';
+  languageLabel.textContent = language || 'código';
+  const copy = document.createElement('button');
+  copy.className = 'chat-code-copy';
+  copy.type = 'button';
+  setCodeCopyIcon(copy, false);
+  copy.title = 'Copiar código';
+  copy.setAttribute('aria-label', 'Copiar código');
+  copy.addEventListener('click', async () => {
+    try {
+      await copyCodeToClipboard(source);
+      setCodeCopyIcon(copy, true);
+      copy.title = 'Copiado';
+      copy.setAttribute('aria-label', 'Código copiado');
+      setTimeout(() => {
+        setCodeCopyIcon(copy, false);
+        copy.title = 'Copiar código';
+        copy.setAttribute('aria-label', 'Copiar código');
+      }, 1400);
+    } catch {
+      copy.title = 'Não foi possível copiar';
+      copy.setAttribute('aria-label', 'Não foi possível copiar o código');
+    }
+  });
+  toolbar.append(languageLabel, copy);
+  const pre = document.createElement('pre');
+  const code = document.createElement('code');
+  code.className = 'chat-code';
+  appendHighlightedCode(code, source);
+  pre.append(code);
+  block.append(toolbar, pre);
+  return block;
+}
+
+function setCodeCopyIcon(button, copied) {
+  if (copied) {
+    button.textContent = '✓';
+    return;
+  }
+  const ns = 'http://www.w3.org/2000/svg';
+  const icon = document.createElementNS(ns, 'svg');
+  icon.setAttribute('viewBox', '0 0 20 20');
+  icon.setAttribute('width', '18');
+  icon.setAttribute('height', '18');
+  icon.setAttribute('fill', 'none');
+  icon.setAttribute('stroke', 'currentColor');
+  icon.setAttribute('stroke-width', '1.6');
+  icon.setAttribute('stroke-linejoin', 'round');
+  const rear = document.createElementNS(ns, 'rect');
+  rear.setAttribute('x', '6'); rear.setAttribute('y', '3'); rear.setAttribute('width', '10'); rear.setAttribute('height', '12'); rear.setAttribute('rx', '1.5');
+  const front = document.createElementNS(ns, 'rect');
+  front.setAttribute('x', '3'); front.setAttribute('y', '6'); front.setAttribute('width', '10'); front.setAttribute('height', '12'); front.setAttribute('rx', '1.5');
+  icon.append(rear, front);
+  button.replaceChildren(icon);
+}
+
+async function copyCodeToClipboard(source) {
+  if (navigator.clipboard?.writeText) {
+    try { await navigator.clipboard.writeText(source); return; } catch {}
+  }
+  const field = document.createElement('textarea');
+  field.value = source;
+  field.setAttribute('readonly', '');
+  field.style.position = 'fixed';
+  field.style.opacity = '0';
+  document.body.append(field);
+  field.select();
+  const copied = document.execCommand('copy');
+  field.remove();
+  if (!copied) throw new Error('Clipboard indisponível');
+}
+
+function appendHighlightedCode(container, source) {
+  const tokens = /\/\*[\s\S]*?\*\/|\/\/[^\n]*|#[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\b\d+(?:\.\d+)?\b|\b[A-Za-z_$][\w$]*\b|[^\s]|\s+/g;
+  for (const match of source.matchAll(tokens)) {
+    const value = match[0];
+    let kind = '';
+    if (/^(\/\/|\/\*|#)/.test(value)) kind = 'comment';
+    else if (/^("|'|`)/.test(value)) kind = 'string';
+    else if (/^\d/.test(value)) kind = 'number';
+    else if (CODE_KEYWORDS.has(value)) kind = 'keyword';
+    if (!kind) container.append(document.createTextNode(value));
+    else {
+      const token = document.createElement('span');
+      token.className = `syntax-${kind}`;
+      token.textContent = value;
+      container.append(token);
+    }
+  }
 }
 
 function renderAttachments() {
@@ -407,15 +610,24 @@ window.api.onEvent((e) => {
     case 'relieved': if (mood === 'worried') { setMood('happy'); say('Sem erros agora!', 3000); } break;
     case 'saved': if (!STICKY.includes(mood)) setMood('joy'); break;
     case 'happy': setMood('joy'); say(e.text || 'Passou!', 4000); break;
-    case 'sad': setMood('sad'); say(e.text || 'Falhou. Quer ajuda?', 5000); break;
+    case 'sad':
+      setMood('sad');
+      if (!activeChatRequestId) say(e.text || 'Falhou. Quer ajuda?', 5000);
+      break;
     case 'sleepy': setMood('sleepy'); break;
     case 'wake': if (mood === 'sleepy') setMood('idle'); break;
-    case 'thinking': setMood('thinking'); say(e.text || 'Pensando…', 30000); break;
-    case 'cancelled': setMood('idle'); if (chatOpen) chatMessage.textContent = 'Parei por aqui.'; break;
+    case 'thinking':
+      setMood('thinking');
+      if (activeChatRequestId) showChatThinking();
+      else say(e.text || 'Pensando…', 30000);
+      break;
+    case 'chat-progress': showChatProgress(e.requestId, e.chunk); break;
+    case 'cancelled': setMood('idle'); if (chatOpen) setChatMessage('Parei por aqui.'); break;
     case 'answer':
       setMood('joy');
-      if (chatOpen) appendTranscriptMessage('pip', e.text);
-      else say(e.text);
+      // A resposta do chat local é salva pelo resultado do pedido abaixo.
+      // Eventos sem pedido local continuam sendo avisos da ilha.
+      if (!activeChatRequestId) say(e.text);
       break;
     case 'chat-opened': resizeCanvas(); chatInput.focus(); break;
     case 'chat-dismissed':
@@ -475,7 +687,6 @@ chatDemo.addEventListener('click', toggleAnimationDemo);
 chatNew.addEventListener('click', startNewConversation);
 chatHistory.addEventListener('click', toggleConversationHistory);
 document.getElementById('chat-settings').addEventListener('click', () => {
-  cancelActiveChatRequest();
   window.api.openSettings();
 });
 chatAttach.addEventListener('click', () => attachFiles(window.api.chooseFiles()));
@@ -487,6 +698,7 @@ chatForm.addEventListener('submit', async (event) => {
   if (!question || chatInput.disabled) return;
   const requestId = `pip-overlay-chat-${Date.now()}-${++chatRequestSequence}`;
   activeChatRequestId = requestId;
+  discardStreamingPreview();
   chatInput.disabled = true;
   chatNew.disabled = true;
   chatHistory.disabled = true;
@@ -499,29 +711,33 @@ chatForm.addEventListener('submit', async (event) => {
   await saveCurrentConversation();
   chatInput.value = '';
   chatMessage.textContent = 'Pensando…';
+  showChatThinking();
   setMood('thinking');
   try {
     const result = await window.api.ask(question, requestId, currentConversation.id);
     if (result.cancelled) {
+      discardStreamingPreview();
       currentConversation.messages.push({ role: 'pip', text: result.text || 'Parei por aqui.' });
       appendTranscriptMessage('pip', result.text || 'Parei por aqui.');
       await saveCurrentConversation();
       setMood('idle');
-      chatMessage.textContent = result.text || 'Parei por aqui.';
+      setChatMessage(result.text || 'Parei por aqui.');
       return;
     }
+    discardStreamingPreview();
     currentConversation.messages.push({ role: 'pip', text: result.text || '' });
     appendTranscriptMessage('pip', result.text);
     await saveCurrentConversation();
     setMood(result.ok === false ? 'sad' : 'joy');
-    chatMessage.textContent = result.ok === false ? result.text : 'Sua vez.';
+    setChatMessage(result.ok === false ? result.text : 'Sua vez.');
   } catch (error) {
+    discardStreamingPreview();
     setMood('sad');
     const message = error.message || 'Não consegui enviar a pergunta.';
     currentConversation.messages.push({ role: 'pip', text: message });
     appendTranscriptMessage('pip', message);
     await saveCurrentConversation();
-    chatMessage.textContent = 'A pergunta não foi enviada.';
+    setChatMessage('A pergunta não foi enviada.');
   } finally {
     activeChatRequestId = null;
     chatInput.disabled = false;
@@ -533,7 +749,7 @@ chatForm.addEventListener('submit', async (event) => {
     chatSend.textContent = '↑';
     chatSend.dataset.cancelling = 'false';
     chatInput.value = '';
-    chatInput.focus();
+    if (chatOpen) chatInput.focus();
   }
 });
 document.addEventListener('keydown', (event) => {
@@ -586,17 +802,17 @@ function draw(timestamp) {
   const celebration = Math.min(1, pose.emotion.joy + pose.emotion.excited);
   const mediaIsland = !chatOpen && document.body.classList.contains('island-expanded')
     && document.body.classList.contains('media-available');
-  const motionScale = chatOpen ? 0.32 : mediaIsland ? 0.12 : 1;
+  const motionScale = chatOpen ? 0.32 : mediaIsland ? 0.6 : 1;
   const bobWave = Math.sin(bobPhase) * (1 - celebration)
     + (1 - Math.cos(bobPhase)) * 0.5 * celebration;
-  const musicBob = musicMotion * musicBeat * (musicStyle === 'heavy' ? 4.5 : 2.5) * motionScale;
+  const musicBob = musicMotion * musicBeat * (musicStyle === 'heavy' ? 8 : 5) * motionScale;
   const oy = (1 - entranceAmount) * -38 + bobWave * pose.bobAmplitude * motionScale + musicBob;
   const ox = Math.sin(bobPhase) * (pose.emotion.worried * 1.5 + pose.emotion.angry * 0.7) * motionScale;
   const confusionTilt = Math.sin(t * 2.2) * 0.11 * pose.emotion.confused;
-  const musicTilt = (pose.bodyTilt + confusionTilt + musicBeat * (musicStyle === 'heavy' ? 0.02 : 0.045) * musicMotion) * motionScale;
+  const musicTilt = (pose.bodyTilt + confusionTilt + musicBeat * (musicStyle === 'heavy' ? 0.12 : 0.085) * musicMotion) * motionScale;
   const musicSquash = musicStyle === 'heavy'
     ? Math.max(0, musicBeat) * 0.09 * musicMotion * motionScale
-    : -Math.cos(musicPhase * musicRate) * 0.018 * musicMotion * motionScale;
+    : -Math.cos(musicPhase * musicRate) * 0.045 * musicMotion * motionScale;
   const excitementSquash = Math.sin(bobPhase * 2) * 0.018 * pose.emotion.excited * motionScale;
   const squash = Math.max(-0.15, Math.min(0.25, pose.squash * motionScale + clickAmount * 0.12 * motionScale + dropPulse * 0.06 + musicSquash + excitementSquash));
   const receiveLift = Math.sin((1 - dropPulse) * Math.PI) * dropPulse * 4;
@@ -605,7 +821,7 @@ function draw(timestamp) {
   const cx = CX + ox, cy = CY + oy + (42 - h) / 2 - receiveLift;
   const shellRadius = h * 0.34;
   x.save(); x.translate(cx, cy); x.rotate(musicTilt); x.translate(-cx, -cy);
-  if (musicStyle === 'calm') graphics.drawHeadsetBand(cx, cy - h / 2, w, musicMotion);
+  graphics.drawHeadsetBand(cx, cy - h / 2, w, Math.max(musicStyle === 'calm' ? musicMotion : 0, appearance.accessory === 'headphones' ? 1 : 0));
   if (greetingAmount > 0.02 && dropAmount < 0.1) {
     const wavePhase = t * 7.5;
     const wave = Math.sin(wavePhase) * greetingAmount;
@@ -627,30 +843,34 @@ function draw(timestamp) {
   }
   const top = cy - h / 2, bottom = cy + h / 2, left = cx - w / 2, right = cx + w / 2;
   const shell = x.createLinearGradient(cx, top, cx, bottom);
-  const anger = pose.emotion.angry;
-  shell.addColorStop(0, graphics.mixHexColors('#ffffff', '#ff4b4b', anger));
-  shell.addColorStop(0.16, graphics.mixHexColors('#f4f6f3', '#f12e2e', anger));
-  shell.addColorStop(0.55, graphics.getEmotionColor(pose.emotion));
-  shell.addColorStop(1, graphics.mixHexColors('#929994', '#8e1111', anger));
+  const shellColors = graphics.getShellGradientColors(pose.emotion);
+  shell.addColorStop(0, shellColors[0]);
+  shell.addColorStop(0.16, shellColors[1]);
+  shell.addColorStop(0.55, shellColors[2]);
+  shell.addColorStop(1, shellColors[3]);
   x.fillStyle = shell;
   x.shadowColor = '#00000055'; x.shadowBlur = 11; x.shadowOffsetY = 5;
   x.beginPath(); x.roundRect(left, top, w, h, shellRadius); x.fill();
+  x.shadowColor = 'transparent'; x.shadowBlur = 0; x.shadowOffsetY = 0;
+  graphics.drawOutfit(cx, cy, w, h, appearance.outfit);
+  graphics.drawHair(cx, top, appearance.hair);
+  if (appearance.accessory !== 'none' && appearance.accessory !== 'headphones') graphics.drawAccessory(cx, cy, top, w, appearance.accessory);
   x.save();
   x.beginPath(); x.roundRect(left, top, w, h, shellRadius); x.clip();
   const highlight = x.createRadialGradient(cx - w * 0.28, top + h * 0.18, 1, cx - w * 0.28, top + h * 0.18, w * 0.72);
   highlight.addColorStop(0, '#ffffffa8'); highlight.addColorStop(0.42, '#ffffff38'); highlight.addColorStop(1, '#ffffff00');
-  x.fillStyle = highlight; x.fillRect(left, top, w, h);
+  x.globalAlpha = graphics.getBaseHighlightAlpha(); x.fillStyle = highlight; x.fillRect(left, top, w, h);
   const sideShade = x.createLinearGradient(left, cy, right, cy);
   sideShade.addColorStop(0, '#ffffff00'); sideShade.addColorStop(0.72, '#61686108'); sideShade.addColorStop(1, '#343a3540');
   x.fillStyle = sideShade; x.fillRect(left, top, w, h);
   x.restore();
   x.shadowColor = 'transparent'; x.shadowBlur = 0; x.shadowOffsetY = 0;
-  x.strokeStyle = graphics.mixHexColors('#747c75', '#720d0d', anger); x.lineWidth = 1; x.globalAlpha = 0.5;
+  x.strokeStyle = graphics.getShellOutlineColor(pose.emotion); x.lineWidth = 1; x.globalAlpha = 0.5;
   x.beginPath(); x.roundRect(left, top, w, h, shellRadius); x.stroke();
   x.globalAlpha = 1;
   x.strokeStyle = '#ffffffa0'; x.lineWidth = 1;
   x.beginPath(); x.moveTo(left + shellRadius, top + 1); x.quadraticCurveTo(cx, top - 0.5, right - shellRadius, top + 1); x.stroke();
-  if (musicStyle === 'calm') graphics.drawHeadsetCups(cx, cy, w, musicMotion);
+  graphics.drawHeadsetCups(cx, cy, w, Math.max(musicStyle === 'calm' ? musicMotion : 0, appearance.accessory === 'headphones' ? 1 : 0));
   const love = Math.max(pose.emotion.love, affection ? 0.75 : 0);
   if (love > 0.03) {
     for (const s of [-1, 1]) {
@@ -661,7 +881,7 @@ function draw(timestamp) {
   const eyeOpen = pose.eyeOpen * (1 - blinkPulse);
   const closed = eyeOpen < 0.12;
   const idleEyeBob = Math.sin(bobPhase) * 0.8;
-  const musicEyeBob = musicBeat * (musicStyle === 'heavy' ? 2.8 : 1.5) * motionScale;
+  const musicEyeBob = musicBeat * (musicStyle === 'heavy' ? 4 : 2.6) * motionScale;
   const eyeBob = idleEyeBob * (1 - musicMotion) + musicEyeBob * musicMotion;
   for (const s of [-1, 1]) {
     const confusionGlance = Math.sin(t * 1.8) * 0.32 * pose.emotion.confused;
@@ -680,6 +900,7 @@ function draw(timestamp) {
       x.fillStyle = '#ffffffb0'; x.beginPath(); x.arc(ex - 1.1, ey - 2.5, 1.15, 0, Math.PI * 2); x.fill();
     }
   }
+  graphics.drawOutfitFace(cx, cy, w, h, appearance.outfit);
   const angry = pose.emotion.angry;
   const confused = pose.emotion.confused;
   const sad = pose.emotion.sad;

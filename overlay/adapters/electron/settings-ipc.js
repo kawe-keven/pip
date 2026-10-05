@@ -13,6 +13,7 @@ function registerSettingsIpc({
   loopbackUrl,
   checkAlfredHealth,
   environment,
+  notifyAppearance,
 }) {
   ipcMain.handle('settings:get', async (event) => {
     assertSettingsSender(event, isSettingsSender);
@@ -40,6 +41,9 @@ function registerSettingsIpc({
   ipcMain.handle('settings:save', async (event, settings) => {
     assertSettingsSender(event, isSettingsSender);
     const result = await settingsRepository.saveSettings(settings);
+    const appearance = await settingsRepository.getAppearance();
+    result.appearance = appearance;
+    if (typeof notifyAppearance === 'function') notifyAppearance(appearance);
     await updateWindowsStartup(settings, result, { app, platform, loginItemSettings });
     await updateClaudeHooks(settings, result, { app, platform, claudeCodeSettings });
     await syncAlfredNotifications();

@@ -39,7 +39,16 @@ function registerChatIpc({ ipcMain, dialog, getWindow, isOverlaySender, fileAtta
       conversationId,
       conversationHistory,
       attachments: pendingAttachments,
-    }, { notify: false, localChat: true });
+    }, {
+      notify: false,
+      localChat: true,
+      onProgress: (chunk) => {
+        const window = getWindow();
+        if (window && !window.isDestroyed() && !window.webContents.isDestroyed()) {
+          window.webContents.send('ev', { type: 'chat-progress', requestId, chunk });
+        }
+      },
+    });
     if (result.status === 499) return { ok: false, cancelled: true, text: 'Parei por aqui.' };
     if (result.status < 200 || result.status >= 300) {
       throw new Error(result.body.error || 'Não consegui enviar a pergunta.');
@@ -55,6 +64,14 @@ function registerChatIpc({ ipcMain, dialog, getWindow, isOverlaySender, fileAtta
   ipcMain.handle('conversations:save', async (event, conversation) => {
     assertOverlaySender(event, isOverlaySender);
     await conversationService.save(conversation);
+  });
+
+  ipcMain.handle('conversations:delete', (event, conversationId) => {
+    assertOverlaySender(event, isOverlaySender);
+    if (typeof conversationId !== 'string' || !/^[\w-]{1,80}$/.test(conversationId)) {
+      throw new Error('Identificador da conversa inválido.');
+    }
+    return conversationService.remove(conversationId);
   });
 }
 
