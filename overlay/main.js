@@ -7,6 +7,7 @@ const { ask, getProviderConfiguration } = require('./providers');
 const { loopbackUrl } = require('./providers/shared');
 const { readDroppedFiles, FILE_DIALOG_EXTENSIONS, MAX_FILES } = require('./file-attachments');
 const settingsStore = require('./settings-store');
+const conversationStore = require('./conversation-store');
 const { startAlfredNotifications } = require('./integrations/alfred-notifications');
 const { startWindowsMediaSession } = require('./integrations/windows-media-session');
 const { checkAlfredHealth } = require('./integrations/alfred-health');
@@ -17,6 +18,7 @@ const MAX_BODY_BYTES = 64 * 1024;
 const MAX_CLAUDE_HOOK_BODY_BYTES = 512 * 1024;
 const WINDOW_WIDTH = 640;
 const WINDOW_HEIGHT = 250;
+const CHAT_WINDOW_HEIGHT = 440;
 const PIPE_NAME = '\\\\.\\pipe\\pip-desktop-v1';
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 let win;
@@ -50,6 +52,7 @@ function openSettings() {
   abortLocalChatQuestions();
   if (win && !win.isDestroyed()) {
     chatOpen = false;
+    placeOnDisplay(screen.getDisplayNearestPoint(screen.getCursorScreenPoint()));
     pointerInteracting = false;
     win.blur();
     win.setFocusable(false);
@@ -124,7 +127,8 @@ async function syncAlfredNotifications() {
 function placeOnDisplay(display) {
   if (!win || win.isDestroyed()) return;
   const { x, y, width } = display.bounds;
-  win.setBounds({ x: Math.round(x + (width - WINDOW_WIDTH) / 2), y, width: WINDOW_WIDTH, height: WINDOW_HEIGHT });
+  const height = chatOpen ? Math.min(CHAT_WINDOW_HEIGHT, display.workAreaSize.height) : WINDOW_HEIGHT;
+  win.setBounds({ x: Math.round(x + (width - WINDOW_WIDTH) / 2), y, width: WINDOW_WIDTH, height });
   lastDisplayId = display.id;
 }
 
@@ -365,7 +369,7 @@ app.whenReady().then(() => {
   const { x, y, width } = display.bounds;
   win = new BrowserWindow({
     width: WINDOW_WIDTH, height: WINDOW_HEIGHT, x: Math.round(x + (width - WINDOW_WIDTH) / 2), y,
-    transparent: true, frame: false, alwaysOnTop: true, skipTaskbar: true,
+    transparent: true, backgroundColor: '#00000000', frame: false, alwaysOnTop: true, skipTaskbar: true,
     focusable: false, hasShadow: false, resizable: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -397,6 +401,7 @@ app.whenReady().then(() => {
     if (paused || !win || win.isDestroyed()) return;
     chatOpen = true;
     pointerInteracting = true;
+    placeOnDisplay(screen.getDisplayNearestPoint(screen.getCursorScreenPoint()));
     reveal(screen.getDisplayNearestPoint(screen.getCursorScreenPoint()));
     win.setFocusable(true);
     win.setIgnoreMouseEvents(false);
@@ -415,6 +420,7 @@ app.whenReady().then(() => {
     chatOpen = false;
     pointerInteracting = false;
     if (!win || win.isDestroyed()) return;
+    placeOnDisplay(screen.getDisplayNearestPoint(screen.getCursorScreenPoint()));
     win.blur();
     win.setFocusable(false);
     win.setIgnoreMouseEvents(true, { forward: true });
@@ -442,16 +448,34 @@ app.whenReady().then(() => {
     if (!isOverlaySender(event)) throw new Error('Origem da solicitação inválida.');
     pendingAttachments = [];
   });
-  ipcMain.handle('chat-ask', async (event, question, requestId) => {
+  ipcMain.handle('chat-ask', async (event, question, requestId, conversationId) => {
     if (!isOverlaySender(event)) throw new Error('Origem da solicitação inválida.');
     if (typeof question !== 'string' || question.length > 2000) throw new Error('Use até 2.000 caracteres para a pergunta.');
     if (typeof requestId !== 'string' || !/^pip-overlay-chat-\d+-\d+$/.test(requestId) || requestId.length > 80) {
       throw new Error('Identificador da pergunta inválido.');
     }
-    const result = await dispatchBridgeRequest('/ask', { question, requestId, attachments: pendingAttachments }, { notify: false, localChat: true });
+    if (typeof conversationId !== 'string' || !/^[\w-]{1,80}$/.test(conversationId)) {
+      throw new Error('Identificador da conversa inválido.');
+    }
+    const savedConversation = await conversationStore.getConversation(conversationId);
+    const conversationHistory = (savedConversation?.messages || []).slice(-25, -1).map((message) => ({
+      role: message.role === 'user' ? 'user' : 'model',
+      text: message.text,
+    }));
+    const result = await dispatchBridgeRequest('/ask', {
+      question, requestId, conversationId, conversationHistory, attachments: pendingAttachments,
+    }, { notify: false, localChat: true });
     if (result.status === 499) return { ok: false, cancelled: true, text: 'Parei por aqui.' };
     if (result.status < 200 || result.status >= 300) throw new Error(result.body.error || 'Não consegui enviar a pergunta.');
     return result.body;
+  });
+  ipcMain.handle('conversations:list', async (event) => {
+    if (!isOverlaySender(event)) throw new Error('Origem da solicitação inválida.');
+    return conversationStore.listConversations();
+  });
+  ipcMain.handle('conversations:save', async (event, conversation) => {
+    if (!isOverlaySender(event)) throw new Error('Origem da solicitação inválida.');
+    await conversationStore.saveConversation(conversation);
   });
   ipcMain.handle('settings:get', async (event) => {
     if (!isSettingsSender(event)) throw new Error('Origem da solicitação inválida.');

@@ -1,12 +1,12 @@
 const { buildPrompt, providerSuccess, providerFailure } = require('./shared');
 
-const conversation = [];
+const conversations = new Map();
 const MAX_HISTORY_MESSAGES = 24;
 const MAX_HISTORY_CHARS = 16_000;
 const MAX_HISTORY_ITEM_CHARS = MAX_HISTORY_CHARS / 2;
 let conversationQueue = Promise.resolve();
 
-function rememberTurn(userText, modelText) {
+function rememberTurn(conversationId, conversation, userText, modelText) {
   conversation.push(
     { role: 'user', parts: [{ text: userText.slice(0, MAX_HISTORY_ITEM_CHARS) }] },
     { role: 'model', parts: [{ text: modelText.slice(0, MAX_HISTORY_ITEM_CHARS) }] },
@@ -15,6 +15,9 @@ function rememberTurn(userText, modelText) {
   while (conversation.length > 2 && conversation.reduce((sum, turn) => sum + turn.parts[0].text.length, 0) > MAX_HISTORY_CHARS) {
     conversation.splice(0, 2);
   }
+  conversations.delete(conversationId);
+  conversations.set(conversationId, conversation);
+  while (conversations.size > 30) conversations.delete(conversations.keys().next().value);
 }
 
 function askGemini(payload, savedKey = '', externalSignal) {
@@ -29,6 +32,15 @@ async function performGeminiAsk(payload, savedKey, externalSignal) {
   if (!key) return providerFailure('Adicione sua chave do Gemini nas configurações do Pip.');
 
   const model = process.env.PIP_MODEL || 'gemini-3.5-flash';
+  const conversationId = typeof payload.conversationId === 'string' && /^[\w-]{1,80}$/.test(payload.conversationId)
+    ? payload.conversationId
+    : 'pip-default';
+  const savedTurns = Array.isArray(payload.conversationHistory)
+    ? payload.conversationHistory.slice(-24).filter((turn) =>
+      turn && ['user', 'model'].includes(turn.role) && typeof turn.text === 'string')
+      .map((turn) => ({ role: turn.role, parts: [{ text: turn.text.slice(0, MAX_HISTORY_ITEM_CHARS) }] }))
+    : [];
+  const conversation = conversations.get(conversationId) || savedTurns;
   let prompt;
   try {
     prompt = buildPrompt(payload);
@@ -59,7 +71,7 @@ async function performGeminiAsk(payload, savedKey, externalSignal) {
     if (!response.ok) return providerFailure(result.error?.message || `A API do Gemini respondeu com erro ${response.status}.`);
     const answer = result.candidates?.[0]?.content?.parts?.map((part) => part.text).join('');
     if (!answer) return providerFailure(result.error?.message || 'Não recebi uma resposta do Gemini.');
-    rememberTurn(prompt, answer);
+    rememberTurn(conversationId, conversation, prompt, answer);
     return providerSuccess(answer);
   } catch (error) {
     if (externallyCancelled) throw error;
