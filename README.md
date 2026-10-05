@@ -100,11 +100,15 @@ pip/
 │   ├── extension.js                # comandos, contexto e eventos do VS Code
 │   └── bridge.js                   # transporte local entre extensão e Pip
 └── overlay/
-		├── main.js                     # janela, bandeja, IPC e servidores locais
-		├── index.html                  # interface, chat e mascote em Canvas
-		├── preload.js                  # API controlada para a interface
-		├── settings-store.js           # persistência de configurações
-		├── file-attachments.js         # validação e leitura de arquivos
+		├── main.js                     # composição e ciclo de vida do desktop
+		├── application/                # casos de uso e resultados independentes do Electron
+		├── adapters/                   # IPC Electron e ponte HTTP/Named Pipe
+		├── infrastructure/             # repositórios JSON e configurações protegidas
+		├── index.html / settings.html   # estrutura das duas telas
+		├── renderer.js / renderer.css  # interface e desenho do mascote
+		├── pet-graphics.js              # formas e desenho isolados do mascote
+		├── settings-renderer.js / settings.css # comportamento e estilos de configurações
+		├── preload.js                  # API controlada da interface principal
 		├── providers/                  # adaptadores Gemini e Alfred
 		└── integrations/               # mídia, alertas e hooks externos
 ```

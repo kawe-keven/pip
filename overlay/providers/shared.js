@@ -60,12 +60,5 @@ function loopbackUrl(value, fallback) {
   }
 }
 
-function providerSuccess(text, usage = null) {
-  return { ok: true, text, ...(usage ? { usage } : {}) };
-}
-
-function providerFailure(text) {
-  return { ok: false, text };
-}
-
-module.exports = { buildPrompt, loopbackUrl, providerSuccess, providerFailure };
+module.exports = { buildPrompt, loopbackUrl, providerSuccess: success, providerFailure: failure };
+const { success, failure } = require('../application/provider-result');
