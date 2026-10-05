@@ -811,10 +811,21 @@ function draw(timestamp) {
   x.save(); x.translate(cx, cy); x.rotate(musicTilt); x.translate(-cx, -cy);
   if (musicStyle === 'calm') drawHeadsetBand(cx, cy - h / 2, w, musicMotion);
   if (greetingAmount > 0.02 && dropAmount < 0.1) {
-    const wave = Math.sin(t * 8) * greetingAmount;
-    x.strokeStyle = '#c7d4c8'; x.lineWidth = 5; x.lineCap = 'round';
-    x.beginPath(); x.moveTo(cx + 39, cy + 12); x.quadraticCurveTo(cx + 54, cy + 10 + wave * 7, cx + 49, cy - 3 + wave * 13); x.stroke();
-    x.fillStyle = '#e2e9e2'; x.beginPath(); x.arc(cx + 49, cy - 3 + wave * 13, 4, 0, Math.PI * 2); x.fill();
+    const wavePhase = t * 7.5;
+    const wave = Math.sin(wavePhase) * greetingAmount;
+    const lift = Math.cos(wavePhase) * greetingAmount;
+    const arm = x.createLinearGradient(cx + 29, cy + 12, cx + 44, cy - 8);
+    arm.addColorStop(0, '#aeb8af'); arm.addColorStop(0.55, '#e5ebe5'); arm.addColorStop(1, '#f7faf7');
+    x.save(); x.fillStyle = arm; x.strokeStyle = '#7e8980'; x.lineWidth = 0.8;
+    const armParts = [
+      [cx + 30, cy + 10, 7, 4.5, -0.36 + wave * 0.12],
+      [cx + 36, cy + 5 + lift * 2, 6.4, 4.8, -0.62 + wave * 0.24],
+      [cx + 41, cy - 1 + lift * 5, 5.6, 4.5, -0.55 + wave * 0.72],
+    ];
+    for (const [armX, armY, radiusX, radiusY, angle] of armParts) {
+      x.beginPath(); x.ellipse(armX, armY, radiusX, radiusY, angle, 0, Math.PI * 2); x.fill(); x.stroke();
+    }
+    x.restore();
   }
   const top = cy - h / 2, bottom = cy + h / 2, left = cx - w / 2, right = cx + w / 2;
   const shell = x.createLinearGradient(cx, top, cx, bottom);
